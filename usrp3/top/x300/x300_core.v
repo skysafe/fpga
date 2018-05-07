@@ -201,7 +201,7 @@ module x300_core #(
 );
 
    // Computation engines that need access to IO
-   localparam NUM_IO_CE = 3;
+   localparam NUM_IO_CE = 2;
 
    wire [NUM_IO_CE*64-1:0] ioce_flat_o_tdata, ioce_flat_i_tdata;
    wire [63:0]             ioce_o_tdata[0:NUM_IO_CE-1], ioce_i_tdata[0:NUM_IO_CE-1];
@@ -215,9 +215,6 @@ module x300_core #(
 
    // Number of Radio Cores Instantiated
    localparam NUM_RADIO_CORES = 2;
-
-   // Indicate if we want to use replay block
-   localparam USE_REPLAY = 0;
 
    //////////////////////////////////////////////////////////////////////////////////////////////
    // RFNoC
@@ -488,143 +485,6 @@ module x300_core #(
       .M00_AXI_RREADY(ddr3_axi_rready) // output M00_AXI_RREADY
    );
 
-   generate
-      if (USE_REPLAY) begin
-
-         noc_block_replay #(
-            .NUM_REPLAY_BLOCKS (2),
-            .STR_SINK_FIFOSIZE (14)
-         ) inst_noc_block_dram_fifo (
-            .bus_clk (bus_clk),
-            .bus_rst (bus_rst),
-            .ce_clk  (ddr3_axi_clk_x2),
-            .ce_rst  (ddr3_axi_rst),
-            
-            .i_tdata  (ioce_o_tdata[0]),
-            .i_tlast  (ioce_o_tlast[0]),
-            .i_tvalid (ioce_o_tvalid[0]),
-            .i_tready (ioce_o_tready[0]),
-            .o_tdata  (ioce_i_tdata[0]),
-            .o_tlast  (ioce_i_tlast[0]),
-            .o_tvalid (ioce_i_tvalid[0]),
-            .o_tready (ioce_i_tready[0]),
-            
-            .m_axi_awid     ({s01_axi_awid, s00_axi_awid}),
-            .m_axi_awaddr   ({s01_axi_awaddr, s00_axi_awaddr}),
-            .m_axi_awlen    ({s01_axi_awlen, s00_axi_awlen}),
-            .m_axi_awsize   ({s01_axi_awsize, s00_axi_awsize}),
-            .m_axi_awburst  ({s01_axi_awburst, s00_axi_awburst}),
-            .m_axi_awlock   ({s01_axi_awlock, s00_axi_awlock}),
-            .m_axi_awcache  ({s01_axi_awcache, s00_axi_awcache}),
-            .m_axi_awprot   ({s01_axi_awprot, s00_axi_awprot}),
-            .m_axi_awqos    ({s01_axi_awqos, s00_axi_awqos}),
-            .m_axi_awregion ({s01_axi_awregion, s00_axi_awregion}),
-            .m_axi_awuser   ({s01_axi_awuser, s00_axi_awuser}),
-            .m_axi_awvalid  ({s01_axi_awvalid, s00_axi_awvalid}),
-            .m_axi_awready  ({s01_axi_awready, s00_axi_awready}),
-            .m_axi_wdata    ({s01_axi_wdata, s00_axi_wdata}),
-            .m_axi_wstrb    ({s01_axi_wstrb, s00_axi_wstrb}),
-            .m_axi_wlast    ({s01_axi_wlast, s00_axi_wlast}),
-            .m_axi_wuser    ({s01_axi_wuser, s00_axi_wuser}),
-            .m_axi_wvalid   ({s01_axi_wvalid, s00_axi_wvalid}),
-            .m_axi_wready   ({s01_axi_wready, s00_axi_wready}),
-            .m_axi_bid      ({s01_axi_bid, s00_axi_bid}),
-            .m_axi_bresp    ({s01_axi_bresp, s00_axi_bresp}),
-            .m_axi_buser    ({s01_axi_buser, s00_axi_buser}),
-            .m_axi_bvalid   ({s01_axi_bvalid, s00_axi_bvalid}),
-            .m_axi_bready   ({s01_axi_bready, s00_axi_bready}),
-            .m_axi_arid     ({s01_axi_arid, s00_axi_arid}),
-            .m_axi_araddr   ({s01_axi_araddr, s00_axi_araddr}),
-            .m_axi_arlen    ({s01_axi_arlen, s00_axi_arlen}),
-            .m_axi_arsize   ({s01_axi_arsize, s00_axi_arsize}),
-            .m_axi_arburst  ({s01_axi_arburst, s00_axi_arburst}),
-            .m_axi_arlock   ({s01_axi_arlock, s00_axi_arlock}),
-            .m_axi_arcache  ({s01_axi_arcache, s00_axi_arcache}),
-            .m_axi_arprot   ({s01_axi_arprot, s00_axi_arprot}),
-            .m_axi_arqos    ({s01_axi_arqos, s00_axi_arqos}),
-            .m_axi_arregion ({s01_axi_arregion, s00_axi_arregion}),
-            .m_axi_aruser   ({s01_axi_aruser, s00_axi_aruser}),
-            .m_axi_arvalid  ({s01_axi_arvalid, s00_axi_arvalid}),
-            .m_axi_arready  ({s01_axi_arready, s00_axi_arready}),
-            .m_axi_rid      ({s01_axi_rid, s00_axi_rid}),
-            .m_axi_rdata    ({s01_axi_rdata, s00_axi_rdata}),
-            .m_axi_rresp    ({s01_axi_rresp, s00_axi_rresp}),
-            .m_axi_rlast    ({s01_axi_rlast, s00_axi_rlast}),
-            .m_axi_ruser    ({s01_axi_ruser, s00_axi_ruser}),
-            .m_axi_rvalid   ({s01_axi_rvalid, s00_axi_rvalid}),
-            .m_axi_rready   ({s01_axi_rready, s00_axi_rready}),
-            
-            .debug ()
-         );
-         
-      end else begin
-
-         noc_block_axi_dma_fifo #(
-            .NUM_FIFOS(2),
-            .DEFAULT_FIFO_BASE({30'h02000000, 30'h00000000}),
-            .DEFAULT_FIFO_SIZE({30'h01FFFFFF, 30'h01FFFFFF}),
-            .STR_SINK_FIFOSIZE(14),
-            .DEFAULT_BURST_TIMEOUT({12'd280, 12'd280}),
-            .EXTENDED_DRAM_BIST(1),
-            .BUS_CLK_RATE(BUS_CLK_RATE)
-         ) inst_noc_block_dram_fifo (
-            .bus_clk(bus_clk), .bus_rst(bus_rst),
-            .ce_clk(ddr3_axi_clk_x2), .ce_rst(ddr3_axi_rst),
-            //AXIS
-            .i_tdata(ioce_o_tdata[0]), .i_tlast(ioce_o_tlast[0]), .i_tvalid(ioce_o_tvalid[0]), .i_tready(ioce_o_tready[0]),
-            .o_tdata(ioce_i_tdata[0]), .o_tlast(ioce_i_tlast[0]), .o_tvalid(ioce_i_tvalid[0]), .o_tready(ioce_i_tready[0]),
-            //AXI
-            .m_axi_awid({s01_axi_awid, s00_axi_awid}),
-            .m_axi_awaddr({s01_axi_awaddr, s00_axi_awaddr}),
-            .m_axi_awlen({s01_axi_awlen, s00_axi_awlen}),
-            .m_axi_awsize({s01_axi_awsize, s00_axi_awsize}),
-            .m_axi_awburst({s01_axi_awburst, s00_axi_awburst}),
-            .m_axi_awlock({s01_axi_awlock, s00_axi_awlock}),
-            .m_axi_awcache({s01_axi_awcache, s00_axi_awcache}),
-            .m_axi_awprot({s01_axi_awprot, s00_axi_awprot}),
-            .m_axi_awqos({s01_axi_awqos, s00_axi_awqos}),
-            .m_axi_awregion({s01_axi_awregion, s00_axi_awregion}),
-            .m_axi_awuser({s01_axi_awuser, s00_axi_awuser}),
-            .m_axi_awvalid({s01_axi_awvalid, s00_axi_awvalid}),
-            .m_axi_awready({s01_axi_awready, s00_axi_awready}),
-            .m_axi_wdata({s01_axi_wdata, s00_axi_wdata}),
-            .m_axi_wstrb({s01_axi_wstrb, s00_axi_wstrb}),
-            .m_axi_wlast({s01_axi_wlast, s00_axi_wlast}),
-            .m_axi_wuser({s01_axi_wuser, s00_axi_wuser}),
-            .m_axi_wvalid({s01_axi_wvalid, s00_axi_wvalid}),
-            .m_axi_wready({s01_axi_wready, s00_axi_wready}),
-            .m_axi_bid({s01_axi_bid, s00_axi_bid}),
-            .m_axi_bresp({s01_axi_bresp, s00_axi_bresp}),
-            .m_axi_buser({s01_axi_buser, s00_axi_buser}),
-            .m_axi_bvalid({s01_axi_bvalid, s00_axi_bvalid}),
-            .m_axi_bready({s01_axi_bready, s00_axi_bready}),
-            .m_axi_arid({s01_axi_arid, s00_axi_arid}),
-            .m_axi_araddr({s01_axi_araddr, s00_axi_araddr}),
-            .m_axi_arlen({s01_axi_arlen, s00_axi_arlen}),
-            .m_axi_arsize({s01_axi_arsize, s00_axi_arsize}),
-            .m_axi_arburst({s01_axi_arburst, s00_axi_arburst}),
-            .m_axi_arlock({s01_axi_arlock, s00_axi_arlock}),
-            .m_axi_arcache({s01_axi_arcache, s00_axi_arcache}),
-            .m_axi_arprot({s01_axi_arprot, s00_axi_arprot}),
-            .m_axi_arqos({s01_axi_arqos, s00_axi_arqos}),
-            .m_axi_arregion({s01_axi_arregion, s00_axi_arregion}),
-            .m_axi_aruser({s01_axi_aruser, s00_axi_aruser}),
-            .m_axi_arvalid({s01_axi_arvalid, s00_axi_arvalid}),
-            .m_axi_arready({s01_axi_arready, s00_axi_arready}),
-            .m_axi_rid({s01_axi_rid, s00_axi_rid}),
-            .m_axi_rdata({s01_axi_rdata, s00_axi_rdata}),
-            .m_axi_rresp({s01_axi_rresp, s00_axi_rresp}),
-            .m_axi_rlast({s01_axi_rlast, s00_axi_rlast}),
-            .m_axi_ruser({s01_axi_ruser, s00_axi_ruser}),
-            .m_axi_rvalid({s01_axi_rvalid, s00_axi_rvalid}),
-            .m_axi_rready({s01_axi_rready, s00_axi_rready}),
-
-            .debug()
-         );
-      end
-
-   endgenerate
-
    /////////////////////////////////////////////////////////////////////////////////////////////
    //
    // Radios
@@ -677,8 +537,8 @@ module x300_core #(
       .bus_clk(bus_clk), .bus_rst(bus_rst),
       .ce_clk(radio_clk), .ce_rst(radio_rst),
       //AXIS data to/from crossbar
-      .i_tdata(ioce_o_tdata[1]), .i_tlast(ioce_o_tlast[1]), .i_tvalid(ioce_o_tvalid[1]), .i_tready(ioce_o_tready[1]),
-      .o_tdata(ioce_i_tdata[1]), .o_tlast(ioce_i_tlast[1]), .o_tvalid(ioce_i_tvalid[1]), .o_tready(ioce_i_tready[1]),
+      .i_tdata(ioce_o_tdata[0]), .i_tlast(ioce_o_tlast[0]), .i_tvalid(ioce_o_tvalid[0]), .i_tready(ioce_o_tready[0]),
+      .o_tdata(ioce_i_tdata[0]), .o_tlast(ioce_i_tlast[0]), .o_tvalid(ioce_i_tvalid[0]), .o_tready(ioce_i_tready[0]),
       // Data ports connected to radio front end
       .rx({rx_data[1],rx_data[0]}), .rx_stb({rx_stb[1],rx_stb[0]}),
       .tx({tx_data[1],tx_data[0]}), .tx_stb({tx_stb[1],tx_stb[0]}),
@@ -709,8 +569,8 @@ module x300_core #(
       .bus_clk(bus_clk), .bus_rst(bus_rst),
       .ce_clk(radio_clk), .ce_rst(radio_rst),
       //AXIS data to/from crossbar
-      .i_tdata(ioce_o_tdata[2]), .i_tlast(ioce_o_tlast[2]), .i_tvalid(ioce_o_tvalid[2]), .i_tready(ioce_o_tready[2]),
-      .o_tdata(ioce_i_tdata[2]), .o_tlast(ioce_i_tlast[2]), .o_tvalid(ioce_i_tvalid[2]), .o_tready(ioce_i_tready[2]),
+      .i_tdata(ioce_o_tdata[1]), .i_tlast(ioce_o_tlast[1]), .i_tvalid(ioce_o_tvalid[1]), .i_tready(ioce_o_tready[1]),
+      .o_tdata(ioce_i_tdata[1]), .o_tlast(ioce_i_tlast[1]), .o_tvalid(ioce_i_tvalid[1]), .o_tready(ioce_i_tready[1]),
       // Ports connected to radio front end
       .rx({rx_data[3],rx_data[2]}), .rx_stb({rx_stb[3],rx_stb[2]}),
       .tx({tx_data[3],tx_data[2]}), .tx_stb({tx_stb[3],tx_stb[2]}),
