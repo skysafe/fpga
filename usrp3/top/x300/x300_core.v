@@ -221,6 +221,7 @@ module x300_core #(
    //////////////////////////////////////////////////////////////////////////////////////////////
    // RFNoC
    //////////////////////////////////////////////////////////////////////////////////////////////
+   localparam CHDR_WIDTH = 64;
 
    // Included automatically instantiated CEs sources file created by RFNoC mod tool
 `ifdef RFNOC
@@ -319,133 +320,135 @@ module x300_core #(
    // DRAM FIFO
    //
    /////////////////////////////////////////////////////////////////////////////////////////////
+   localparam DRAM_FIFO_INPUT_BUFF_SIZE = 14;
+   localparam NUM_DRAM_FIFOS = 2;
 
    // AXI4 MM buses
-   wire        s00_axi_awready, s01_axi_awready;
-   wire [0:0]  s00_axi_awid, s01_axi_awid;
-   wire [31:0] s00_axi_awaddr, s01_axi_awaddr;
-   wire [7:0]  s00_axi_awlen, s01_axi_awlen;
-   wire [2:0]  s00_axi_awsize, s01_axi_awsize;
-   wire [1:0]  s00_axi_awburst, s01_axi_awburst;
-   wire [0:0]  s00_axi_awlock, s01_axi_awlock;
-   wire [3:0]  s00_axi_awcache, s01_axi_awcache;
-   wire [2:0]  s00_axi_awprot, s01_axi_awprot;
-   wire [3:0]  s00_axi_awqos, s01_axi_awqos;
-   wire [3:0]  s00_axi_awregion, s01_axi_awregion;
-   wire [0:0]  s00_axi_awuser, s01_axi_awuser;
-   wire        s00_axi_wready, s01_axi_wready;
-   wire [63:0] s00_axi_wdata, s01_axi_wdata;
-   wire [7:0]  s00_axi_wstrb, s01_axi_wstrb;
-   wire [0:0]  s00_axi_wuser, s01_axi_wuser;
-   wire        s00_axi_bvalid, s01_axi_bvalid;
-   wire [0:0]  s00_axi_bid, s01_axi_bid;
-   wire [1:0]  s00_axi_bresp, s01_axi_bresp;
-   wire [0:0]  s00_axi_buser, s01_axi_buser;
-   wire        s00_axi_arready, s01_axi_arready;
-   wire [0:0]  s00_axi_arid, s01_axi_arid;
-   wire [31:0] s00_axi_araddr, s01_axi_araddr;
-   wire [7:0]  s00_axi_arlen, s01_axi_arlen;
-   wire [2:0]  s00_axi_arsize, s01_axi_arsize;
-   wire [1:0]  s00_axi_arburst, s01_axi_arburst;
-   wire [0:0]  s00_axi_arlock, s01_axi_arlock;
-   wire [3:0]  s00_axi_arcache, s01_axi_arcache;
-   wire [2:0]  s00_axi_arprot, s01_axi_arprot;
-   wire [3:0]  s00_axi_arqos, s01_axi_arqos;
-   wire [3:0]  s00_axi_arregion, s01_axi_arregion;
-   wire [0:0]  s00_axi_aruser, s01_axi_aruser;
-   wire        s00_axi_rlast, s01_axi_rlast;
-   wire        s00_axi_rvalid, s01_axi_rvalid;
-   wire        s00_axi_awvalid, s01_axi_awvalid;
-   wire        s00_axi_wlast, s01_axi_wlast;
-   wire        s00_axi_wvalid, s01_axi_wvalid;
-   wire        s00_axi_bready, s01_axi_bready;
-   wire        s00_axi_arvalid, s01_axi_arvalid;
-   wire        s00_axi_rready, s01_axi_rready;
-   wire [0:0]  s00_axi_rid, s01_axi_rid;
-   wire [63:0] s00_axi_rdata, s01_axi_rdata;
-   wire [1:0]  s00_axi_rresp, s01_axi_rresp;
-   wire [0:0]  s00_axi_ruser, s01_axi_ruser;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_awready_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_awid_flat;
+   wire [NUM_DRAM_FIFOS*32-1:0] s_axi_awaddr_flat;
+   wire [NUM_DRAM_FIFOS*8-1:0]  s_axi_awlen_flat;
+   wire [NUM_DRAM_FIFOS*3-1:0]  s_axi_awsize_flat;
+   wire [NUM_DRAM_FIFOS*2-1:0]  s_axi_awburst_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_awlock_flat;
+   wire [NUM_DRAM_FIFOS*4-1:0]  s_axi_awcache_flat;
+   wire [NUM_DRAM_FIFOS*3-1:0]  s_axi_awprot_flat;
+   wire [NUM_DRAM_FIFOS*4-1:0]  s_axi_awqos_flat;
+   wire [NUM_DRAM_FIFOS*4-1:0]  s_axi_awregion_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_awuser_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_wready_flat;
+   wire [NUM_DRAM_FIFOS*64-1:0] s_axi_wdata_flat;
+   wire [NUM_DRAM_FIFOS*8-1:0]  s_axi_wstrb_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_wuser_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_bvalid_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_bid_flat;
+   wire [NUM_DRAM_FIFOS*2-1:0]  s_axi_bresp_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_buser_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_arready_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_arid_flat;
+   wire [NUM_DRAM_FIFOS*32-1:0] s_axi_araddr_flat;
+   wire [NUM_DRAM_FIFOS*8-1:0]  s_axi_arlen_flat;
+   wire [NUM_DRAM_FIFOS*3-1:0]  s_axi_arsize_flat;
+   wire [NUM_DRAM_FIFOS*2-1:0]  s_axi_arburst_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_arlock_flat;
+   wire [NUM_DRAM_FIFOS*4-1:0]  s_axi_arcache_flat;
+   wire [NUM_DRAM_FIFOS*3-1:0]  s_axi_arprot_flat;
+   wire [NUM_DRAM_FIFOS*4-1:0]  s_axi_arqos_flat;
+   wire [NUM_DRAM_FIFOS*4-1:0]  s_axi_arregion_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_aruser_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_rlast_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_rvalid_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_awvalid_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_wlast_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_wvalid_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_bready_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_arvalid_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_rready_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_rid_flat;
+   wire [NUM_DRAM_FIFOS*64-1:0] s_axi_rdata_flat;
+   wire [NUM_DRAM_FIFOS*2-1:0]  s_axi_rresp_flat;
+   wire [NUM_DRAM_FIFOS-1:0]    s_axi_ruser_flat;
 
    axi_intercon_2x64_128_bd_wrapper axi_intercon_2x64_128_bd_i (
       .S00_AXI_ACLK(ddr3_axi_clk_x2), // input S00_AXI_ACLK
       .S00_AXI_ARESETN(~ddr3_axi_rst), // input S00_AXI_ARESETN
-      .S00_AXI_AWID(s00_axi_awid), // input [0 : 0] S00_AXI_AWID
-      .S00_AXI_AWADDR(s00_axi_awaddr), // input [31 : 0] S00_AXI_AWADDR
-      .S00_AXI_AWLEN(s00_axi_awlen), // input [7 : 0] S00_AXI_AWLEN
-      .S00_AXI_AWSIZE(s00_axi_awsize), // input [2 : 0] S00_AXI_AWSIZE
-      .S00_AXI_AWBURST(s00_axi_awburst), // input [1 : 0] S00_AXI_AWBURST
-      .S00_AXI_AWLOCK(s00_axi_awlock), // input S00_AXI_AWLOCK
-      .S00_AXI_AWCACHE(s00_axi_awcache), // input [3 : 0] S00_AXI_AWCACHE
-      .S00_AXI_AWPROT(s00_axi_awprot), // input [2 : 0] S00_AXI_AWPROT
-      .S00_AXI_AWQOS(s00_axi_awqos), // input [3 : 0] S00_AXI_AWQOS
-      .S00_AXI_AWVALID(s00_axi_awvalid), // input S00_AXI_AWVALID
-      .S00_AXI_AWREADY(s00_axi_awready), // output S00_AXI_AWREADY
-      .S00_AXI_WDATA(s00_axi_wdata), // input [63 : 0] S00_AXI_WDATA
-      .S00_AXI_WSTRB(s00_axi_wstrb), // input [7 : 0] S00_AXI_WSTRB
-      .S00_AXI_WLAST(s00_axi_wlast), // input S00_AXI_WLAST
-      .S00_AXI_WVALID(s00_axi_wvalid), // input S00_AXI_WVALID
-      .S00_AXI_WREADY(s00_axi_wready), // output S00_AXI_WREADY
-      .S00_AXI_BID(s00_axi_bid), // output [0 : 0] S00_AXI_BID
-      .S00_AXI_BRESP(s00_axi_bresp), // output [1 : 0] S00_AXI_BRESP
-      .S00_AXI_BVALID(s00_axi_bvalid), // output S00_AXI_BVALID
-      .S00_AXI_BREADY(s00_axi_bready), // input S00_AXI_BREADY
-      .S00_AXI_ARID(s00_axi_arid), // input [0 : 0] S00_AXI_ARID
-      .S00_AXI_ARADDR(s00_axi_araddr), // input [31 : 0] S00_AXI_ARADDR
-      .S00_AXI_ARLEN(s00_axi_arlen), // input [7 : 0] S00_AXI_ARLEN
-      .S00_AXI_ARSIZE(s00_axi_arsize), // input [2 : 0] S00_AXI_ARSIZE
-      .S00_AXI_ARBURST(s00_axi_arburst), // input [1 : 0] S00_AXI_ARBURST
-      .S00_AXI_ARLOCK(s00_axi_arlock), // input S00_AXI_ARLOCK
-      .S00_AXI_ARCACHE(s00_axi_arcache), // input [3 : 0] S00_AXI_ARCACHE
-      .S00_AXI_ARPROT(s00_axi_arprot), // input [2 : 0] S00_AXI_ARPROT
-      .S00_AXI_ARQOS(s00_axi_arqos), // input [3 : 0] S00_AXI_ARQOS
-      .S00_AXI_ARVALID(s00_axi_arvalid), // input S00_AXI_ARVALID
-      .S00_AXI_ARREADY(s00_axi_arready), // output S00_AXI_ARREADY
-      .S00_AXI_RID(s00_axi_rid), // output [0 : 0] S00_AXI_RID
-      .S00_AXI_RDATA(s00_axi_rdata), // output [63 : 0] S00_AXI_RDATA
-      .S00_AXI_RRESP(s00_axi_rresp), // output [1 : 0] S00_AXI_RRESP
-      .S00_AXI_RLAST(s00_axi_rlast), // output S00_AXI_RLAST
-      .S00_AXI_RVALID(s00_axi_rvalid), // output S00_AXI_RVALID
-      .S00_AXI_RREADY(s00_axi_rready), // input S00_AXI_RREADY
+      .S00_AXI_AWID(s_axi_awid_flat[0:0]), // input [0 : 0] S00_AXI_AWID
+      .S00_AXI_AWADDR(s_axi_awaddr_flat[31:0]), // input [31 : 0] S00_AXI_AWADDR
+      .S00_AXI_AWLEN(s_axi_awlen_flat[7:0]), // input [7 : 0] S00_AXI_AWLEN
+      .S00_AXI_AWSIZE(s_axi_awsize_flat[2:0]), // input [2 : 0] S00_AXI_AWSIZE
+      .S00_AXI_AWBURST(s_axi_awburst_flat[1:0]), // input [1 : 0] S00_AXI_AWBURST
+      .S00_AXI_AWLOCK(s_axi_awlock_flat[0]), // input S00_AXI_AWLOCK
+      .S00_AXI_AWCACHE(s_axi_awcache_flat[3:0]), // input [3 : 0] S00_AXI_AWCACHE
+      .S00_AXI_AWPROT(s_axi_awprot_flat[2:0]), // input [2 : 0] S00_AXI_AWPROT
+      .S00_AXI_AWQOS(s_axi_awqos_flat[3:0]), // input [3 : 0] S00_AXI_AWQOS
+      .S00_AXI_AWVALID(s_axi_awvalid_flat[0]), // input S00_AXI_AWVALID
+      .S00_AXI_AWREADY(s_axi_awready_flat[0]), // output S00_AXI_AWREADY
+      .S00_AXI_WDATA(s_axi_wdata_flat[63:0]), // input [63 : 0] S00_AXI_WDATA
+      .S00_AXI_WSTRB(s_axi_wstrb_flat[7:0]), // input [7 : 0] S00_AXI_WSTRB
+      .S00_AXI_WLAST(s_axi_wlast_flat[0]), // input S00_AXI_WLAST
+      .S00_AXI_WVALID(s_axi_wvalid_flat[0]), // input S00_AXI_WVALID
+      .S00_AXI_WREADY(s_axi_wready_flat[0]), // output S00_AXI_WREADY
+      .S00_AXI_BID(s_axi_bid_flat[0:0]), // output [0 : 0] S00_AXI_BID
+      .S00_AXI_BRESP(s_axi_bresp_flat[1:0]), // output [1 : 0] S00_AXI_BRESP
+      .S00_AXI_BVALID(s_axi_bvalid_flat[0]), // output S00_AXI_BVALID
+      .S00_AXI_BREADY(s_axi_bready_flat[0]), // input S00_AXI_BREADY
+      .S00_AXI_ARID(s_axi_arid_flat[0:0]), // input [0 : 0] S00_AXI_ARID
+      .S00_AXI_ARADDR(s_axi_araddr_flat[31:0]), // input [31 : 0] S00_AXI_ARADDR
+      .S00_AXI_ARLEN(s_axi_arlen_flat[7:0]), // input [7 : 0] S00_AXI_ARLEN
+      .S00_AXI_ARSIZE(s_axi_arsize_flat[2:0]), // input [2 : 0] S00_AXI_ARSIZE
+      .S00_AXI_ARBURST(s_axi_arburst_flat[1:0]), // input [1 : 0] S00_AXI_ARBURST
+      .S00_AXI_ARLOCK(s_axi_arlock_flat[0]), // input S00_AXI_ARLOCK
+      .S00_AXI_ARCACHE(s_axi_arcache_flat[3:0]), // input [3 : 0] S00_AXI_ARCACHE
+      .S00_AXI_ARPROT(s_axi_arprot_flat[2:0]), // input [2 : 0] S00_AXI_ARPROT
+      .S00_AXI_ARQOS(s_axi_arqos_flat[3:0]), // input [3 : 0] S00_AXI_ARQOS
+      .S00_AXI_ARVALID(s_axi_arvalid_flat[0]), // input S00_AXI_ARVALID
+      .S00_AXI_ARREADY(s_axi_arready_flat[0]), // output S00_AXI_ARREADY
+      .S00_AXI_RID(s_axi_rid_flat[0:0]), // output [0 : 0] S00_AXI_RID
+      .S00_AXI_RDATA(s_axi_rdata_flat[63:0]), // output [63 : 0] S00_AXI_RDATA
+      .S00_AXI_RRESP(s_axi_rresp_flat[1:0]), // output [1 : 0] S00_AXI_RRESP
+      .S00_AXI_RLAST(s_axi_rlast_flat[0]), // output S00_AXI_RLAST
+      .S00_AXI_RVALID(s_axi_rvalid_flat[0]), // output S00_AXI_RVALID
+      .S00_AXI_RREADY(s_axi_rready_flat[0]), // input S00_AXI_RREADY
       //
       .S01_AXI_ACLK(ddr3_axi_clk_x2), // input S01_AXI_ACLK
       .S01_AXI_ARESETN(~ddr3_axi_rst), // input S00_AXI_ARESETN
-      .S01_AXI_AWID(s01_axi_awid), // input [0 : 0] S01_AXI_AWID
-      .S01_AXI_AWADDR(s01_axi_awaddr), // input [31 : 0] S01_AXI_AWADDR
-      .S01_AXI_AWLEN(s01_axi_awlen), // input [7 : 0] S01_AXI_AWLEN
-      .S01_AXI_AWSIZE(s01_axi_awsize), // input [2 : 0] S01_AXI_AWSIZE
-      .S01_AXI_AWBURST(s01_axi_awburst), // input [1 : 0] S01_AXI_AWBURST
-      .S01_AXI_AWLOCK(s01_axi_awlock), // input S01_AXI_AWLOCK
-      .S01_AXI_AWCACHE(s01_axi_awcache), // input [3 : 0] S01_AXI_AWCACHE
-      .S01_AXI_AWPROT(s01_axi_awprot), // input [2 : 0] S01_AXI_AWPROT
-      .S01_AXI_AWQOS(s01_axi_awqos), // input [3 : 0] S01_AXI_AWQOS
-      .S01_AXI_AWVALID(s01_axi_awvalid), // input S01_AXI_AWVALID
-      .S01_AXI_AWREADY(s01_axi_awready), // output S01_AXI_AWREADY
-      .S01_AXI_WDATA(s01_axi_wdata), // input [63 : 0] S01_AXI_WDATA
-      .S01_AXI_WSTRB(s01_axi_wstrb), // input [7 : 0] S01_AXI_WSTRB
-      .S01_AXI_WLAST(s01_axi_wlast), // input S01_AXI_WLAST
-      .S01_AXI_WVALID(s01_axi_wvalid), // input S01_AXI_WVALID
-      .S01_AXI_WREADY(s01_axi_wready), // output S01_AXI_WREADY
-      .S01_AXI_BID(s01_axi_bid), // output [0 : 0] S01_AXI_BID
-      .S01_AXI_BRESP(s01_axi_bresp), // output [1 : 0] S01_AXI_BRESP
-      .S01_AXI_BVALID(s01_axi_bvalid), // output S01_AXI_BVALID
-      .S01_AXI_BREADY(s01_axi_bready), // input S01_AXI_BREADY
-      .S01_AXI_ARID(s01_axi_arid), // input [0 : 0] S01_AXI_ARID
-      .S01_AXI_ARADDR(s01_axi_araddr), // input [31 : 0] S01_AXI_ARADDR
-      .S01_AXI_ARLEN(s01_axi_arlen), // input [7 : 0] S01_AXI_ARLEN
-      .S01_AXI_ARSIZE(s01_axi_arsize), // input [2 : 0] S01_AXI_ARSIZE
-      .S01_AXI_ARBURST(s01_axi_arburst), // input [1 : 0] S01_AXI_ARBURST
-      .S01_AXI_ARLOCK(s01_axi_arlock), // input S01_AXI_ARLOCK
-      .S01_AXI_ARCACHE(s01_axi_arcache), // input [3 : 0] S01_AXI_ARCACHE
-      .S01_AXI_ARPROT(s01_axi_arprot), // input [2 : 0] S01_AXI_ARPROT
-      .S01_AXI_ARQOS(s01_axi_arqos), // input [3 : 0] S01_AXI_ARQOS
-      .S01_AXI_ARVALID(s01_axi_arvalid), // input S01_AXI_ARVALID
-      .S01_AXI_ARREADY(s01_axi_arready), // output S01_AXI_ARREADY
-      .S01_AXI_RID(s01_axi_rid), // output [0 : 0] S01_AXI_RID
-      .S01_AXI_RDATA(s01_axi_rdata), // output [63 : 0] S01_AXI_RDATA
-      .S01_AXI_RRESP(s01_axi_rresp), // output [1 : 0] S01_AXI_RRESP
-      .S01_AXI_RLAST(s01_axi_rlast), // output S01_AXI_RLAST
-      .S01_AXI_RVALID(s01_axi_rvalid), // output S01_AXI_RVALID
-      .S01_AXI_RREADY(s01_axi_rready), // input S01_AXI_RREADY
+      .S01_AXI_AWID(s_axi_awid_flat[1:1]), // input [0 : 0] S01_AXI_AWID
+      .S01_AXI_AWADDR(s_axi_awaddr_flat[63:32]), // input [31 : 0] S01_AXI_AWADDR
+      .S01_AXI_AWLEN(s_axi_awlen_flat[15:8]), // input [7 : 0] S01_AXI_AWLEN
+      .S01_AXI_AWSIZE(s_axi_awsize_flat[5:3]), // input [2 : 0] S01_AXI_AWSIZE
+      .S01_AXI_AWBURST(s_axi_awburst_flat[3:2]), // input [1 : 0] S01_AXI_AWBURST
+      .S01_AXI_AWLOCK(s_axi_awlock_flat[1]), // input S01_AXI_AWLOCK
+      .S01_AXI_AWCACHE(s_axi_awcache_flat[7:4]), // input [3 : 0] S01_AXI_AWCACHE
+      .S01_AXI_AWPROT(s_axi_awprot_flat[5:3]), // input [2 : 0] S01_AXI_AWPROT
+      .S01_AXI_AWQOS(s_axi_awqos_flat[7:4]), // input [3 : 0] S01_AXI_AWQOS
+      .S01_AXI_AWVALID(s_axi_awvalid_flat[1]), // input S01_AXI_AWVALID
+      .S01_AXI_AWREADY(s_axi_awready_flat[1]), // output S01_AXI_AWREADY
+      .S01_AXI_WDATA(s_axi_wdata_flat[127:64]), // input [63 : 0] S01_AXI_WDATA
+      .S01_AXI_WSTRB(s_axi_wstrb_flat[15:8]), // input [7 : 0] S01_AXI_WSTRB
+      .S01_AXI_WLAST(s_axi_wlast_flat[1]), // input S01_AXI_WLAST
+      .S01_AXI_WVALID(s_axi_wvalid_flat[1]), // input S01_AXI_WVALID
+      .S01_AXI_WREADY(s_axi_wready_flat[1]), // output S01_AXI_WREADY
+      .S01_AXI_BID(s_axi_bid_flat[1:1]), // output [0 : 0] S01_AXI_BID
+      .S01_AXI_BRESP(s_axi_bresp_flat[3:2]), // output [1 : 0] S01_AXI_BRESP
+      .S01_AXI_BVALID(s_axi_bvalid_flat[1]), // output S01_AXI_BVALID
+      .S01_AXI_BREADY(s_axi_bready_flat[1]), // input S01_AXI_BREADY
+      .S01_AXI_ARID(s_axi_arid_flat[1:1]), // input [0 : 0] S01_AXI_ARID
+      .S01_AXI_ARADDR(s_axi_araddr_flat[63:32]), // input [31 : 0] S01_AXI_ARADDR
+      .S01_AXI_ARLEN(s_axi_arlen_flat[15:8]), // input [7 : 0] S01_AXI_ARLEN
+      .S01_AXI_ARSIZE(s_axi_arsize_flat[5:3]), // input [2 : 0] S01_AXI_ARSIZE
+      .S01_AXI_ARBURST(s_axi_arburst_flat[3:2]), // input [1 : 0] S01_AXI_ARBURST
+      .S01_AXI_ARLOCK(s_axi_arlock_flat[1]), // input S01_AXI_ARLOCK
+      .S01_AXI_ARCACHE(s_axi_arcache_flat[7:4]), // input [3 : 0] S01_AXI_ARCACHE
+      .S01_AXI_ARPROT(s_axi_arprot_flat[5:3]), // input [2 : 0] S01_AXI_ARPROT
+      .S01_AXI_ARQOS(s_axi_arqos_flat[7:4]), // input [3 : 0] S01_AXI_ARQOS
+      .S01_AXI_ARVALID(s_axi_arvalid_flat[1]), // input S01_AXI_ARVALID
+      .S01_AXI_ARREADY(s_axi_arready_flat[1]), // output S01_AXI_ARREADY
+      .S01_AXI_RID(s_axi_rid_flat[1:1]), // output [0 : 0] S01_AXI_RID
+      .S01_AXI_RDATA(s_axi_rdata_flat[127:64]), // output [63 : 0] S01_AXI_RDATA
+      .S01_AXI_RRESP(s_axi_rresp_flat[3:2]), // output [1 : 0] S01_AXI_RRESP
+      .S01_AXI_RLAST(s_axi_rlast_flat[1]), // output S01_AXI_RLAST
+      .S01_AXI_RVALID(s_axi_rvalid_flat[1]), // output S01_AXI_RVALID
+      .S01_AXI_RREADY(s_axi_rready_flat[1]), // input S01_AXI_RREADY
       //
       .M00_AXI_ACLK(ddr3_axi_clk), // input M00_AXI_ACLK
       .M00_AXI_ARESETN(~ddr3_axi_rst), // input S00_AXI_ARESETN
