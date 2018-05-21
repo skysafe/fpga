@@ -47,29 +47,6 @@ noc_block_{blockname} {blockparameters}{instname} (
 );
 """
 
-FILL_FIFO_TMPL = """
-// Fill remaining crossbar ports with loopback FIFOs
-genvar n;
-generate
-  for (n = {fifo_start}; n < NUM_CE; n = n + 1) begin
-    noc_block_axi_fifo_loopback inst_noc_block_axi_fifo_loopback (
-      .bus_clk  (bus_clk),
-      .bus_rst  (bus_rst),
-      .ce_clk   (ce_clk),
-      .ce_rst   (ce_rst),
-      .i_tdata  (ce_flat_o_tdata[CHDR_WIDTH*n-1:CHDR_WIDTH*(n-1)]),
-      .i_tlast  (ce_o_tlast[n]),
-      .i_tvalid (ce_o_tvalid[n]),
-      .i_tready (ce_o_tready[n]),
-      .o_tdata  (ce_flat_i_tdata[CHDR_WIDTH*n-1:CHDR_WIDTH*(n-1)]),
-      .o_tlast  (ce_i_tlast[n]),
-      .o_tvalid (ce_i_tvalid[n]), .o_tready(ce_i_tready[n]),
-      .debug    (ce_debug[n])
-    );
-  end
-endgenerate
-"""
-
 # Dict of standard bus templates
 BUS_TMPL = { \
 'chdr': {'cnt' : 0, 'template': \
@@ -345,7 +322,7 @@ def format_port_str(ports):
         portstr = "\n  %s," % (",\n  ".join(portstrlist))
     return portstr
 
-def create_vfiles(blocks, max_num_blocks, fill_with_fifos=False):
+def create_vfiles(blocks, max_num_blocks):
     """
     Returns the verilogs
     """
@@ -356,10 +333,7 @@ def create_vfiles(blocks, max_num_blocks, fill_with_fifos=False):
         print("[GEN_RFNOC_INST ERROR] Trying to connect {} blocks, max is {}".\
                 format(len(blocks), max_num_blocks))
         exit(1)
-    num_ce = max_num_blocks
-    if not fill_with_fifos:
-        num_ce = len(blocks)
-    vfile = HEADER_TMPL.format(num_ce=num_ce)
+    vfile = HEADER_TMPL.format(num_ce=len(blocks))
     blocks_in_blacklist = [block for block in blocks if block['block'] in BLACKLIST]
     if len(blocks_in_blacklist):
         print("[RFNoC ERROR]: The following blocks require special treatment and"\
@@ -386,8 +360,6 @@ def create_vfiles(blocks, max_num_blocks, fill_with_fifos=False):
                                    gpio=format_port_str(block['gpio']),
                                    buses=format_bus_str(block['buses']),
                                    ports=format_port_str(block['ports']))
-    if fill_with_fifos:
-        vfile += FILL_FIFO_TMPL.format(fifo_start=len(blocks))
     return vfile
 
 def file_generator(args, vfile):
@@ -891,9 +863,14 @@ def main():
             block = get_default_block_parameters()
             block["block"] = blockname
             requested_blocks.append(block)
+    if args.fill_with_fifos:
+        for i in range(len(requested_blocks), args.max_num_blocks):
+            block = get_default_block_parameters()
+            block["block"] = "fifo"
+            requested_blocks.append(block)
     available_blocks = parse_nocscript(args.uhd_include_dir, args.oot_include_dir)
     blocklist = create_blocklist(requested_blocks, available_blocks)
-    vfile = create_vfiles(blocklist, args.max_num_blocks, args.fill_with_fifos)
+    vfile = create_vfiles(blocklist, args.max_num_blocks)
     file_generator(args, vfile)
     create_oot_include(args.device, args.oot_include_dir)
     if args.outfile is  None:
