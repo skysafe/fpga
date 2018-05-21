@@ -42,7 +42,7 @@ noc_block_{blockname} {blockparameters}{instname} (
   .bus_clk  (bus_clk),
   .bus_rst  (bus_rst),
   .ce_clk   ({clock}),
-  .ce_rst   ({reset}),{buses}{gpio}{extraports}
+  .ce_rst   ({reset}),{buses}{gpio}{ports}
   .debug    (ce_debug[{n}])
 );
 """
@@ -259,7 +259,7 @@ def get_default_block_parameters():
                # List of dicts of block's buses
                "buses"      : [{"portprefix" : "", "netprefix": "", "type" : "chdr", "vlen" : 1}],
                "parameters" : {},       # Dict of block's HDL parameters/generics
-               "extraports" : {}}       # Dict of extra ports to instantiate on block IO
+               "ports"      : {}}       # Dict of extra ports to instantiate on block IO
     return default
 
 def parse_yml(ymlfile):
@@ -289,8 +289,8 @@ def parse_yml(ymlfile):
             block["reset"] = val["reset"]
         if "parameters" in val:
             block["parameters"] = val["parameters"]
-        if "extraports" in val:
-            block["extraports"] = val["extraports"]
+        if "ports" in val:
+            block["ports"] = val["ports"]
         blocks.append(block)
 
     return blocks
@@ -329,20 +329,20 @@ def format_param_str(parameters):
         paramstr = "#(\n%s)\n" % (",\n".join(paramstrlist))
     return paramstr
 
-def format_port_str(extraports):
+def format_port_str(ports):
     """
     Take a single dictionary and format as a verilog string representing extra block ports
     """
     portstr = ""
-    if extraports:
+    if ports:
         portstrlist = []
-        for key in extraports.keys():
+        for key in ports.keys():
             value = ""
-            if not (extraports[key] is None):
-                value = extraports[key]
+            if not (ports[key] is None):
+                value = ports[key]
             currstr = ".%s(%s)" % (key, value)
             portstrlist.append(currstr)
-        portstr = ",\n  %s" % (",\n  ".join(portstrlist))
+        portstr = "\n  %s," % (",\n  ".join(portstrlist))
     return portstr
 
 def create_vfiles(blocks, max_num_blocks, fill_with_fifos=False):
@@ -385,7 +385,7 @@ def create_vfiles(blocks, max_num_blocks, fill_with_fifos=False):
                                    reset=block["reset"],
                                    gpio=format_port_str(block['gpio']),
                                    buses=format_bus_str(block['buses']),
-                                   extraports=format_port_str(block['extraports']))
+                                   ports=format_port_str(block['ports']))
     if fill_with_fifos:
         vfile += FILL_FIFO_TMPL.format(fifo_start=len(blocks))
     return vfile
@@ -775,6 +775,33 @@ def parse_nocscript(uhd_include_dir, oot_include_dir):
                 buses.append(d)
             if len(buses):
                 block['buses'] = buses
+            ports={}
+            for port in nocscript.findall('io/port'):
+                portname = port.findall('portname')
+                if len(portname) == 1:
+                    if portname[0].text is None:
+                        print('[ERROR] noc script "'+xml_file+'" <port> has empty <portname>')
+                        exit(1)
+                elif len(portname) == 0:
+                    print('[ERROR] noc script "'+xml_file+'" <port> missing <portname>')
+                    exit(1)
+                else:
+                    print('[ERROR] noc script "'+xml_file+'" <port> has more than one <portname>')
+                    exit(1)
+                netname = port.findall('netname')
+                if len(netname) == 1:
+                    if netname[0].text is None:
+                        print('[ERROR] noc script "'+xml_file+'" <port> has empty <netname>')
+                        exit(1)
+                elif len(netname) == 0:
+                    print('[ERROR] noc script "'+xml_file+'" <port> missing <netname>')
+                    exit(1)
+                else:
+                    print('[ERROR] noc script "'+xml_file+'" <port> has more than one <netname>')
+                    exit(1)
+                ports[portname[0].text] = netname[0].text
+            if len(ports.keys()):
+                block['ports'] = ports
             params={}
             for param in nocscript.findall('parameters/parameter'):
                 name = param.findall('name')
@@ -846,7 +873,8 @@ def create_blocklist(requested_blocks, available_blocks):
         # Merge req_block and avail_block params, give req_block precedence
         for param in req_block['parameters']:
             avail_block[param.key()] = req_block[param.key()]
-        avail_block['extraports'] = req_block['extraports']
+        for port in req_block['ports']:
+            avail_block[port.key()] = req_block['ports']
         blocklist.append(avail_block)
 
     return blocklist
