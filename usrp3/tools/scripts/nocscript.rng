@@ -1,0 +1,322 @@
+<element name="nocblock" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <interleave>
+    <element name="name">
+      <data type="string">
+        <param name="minLength">1</param>
+      </data>
+    </element>
+    <element name="blockname">
+      <data type="string">
+        <param name="minLength">1</param>
+      </data>
+    </element>
+    <optional>
+      <element name="key">
+        <data type="string">
+          <param name="minLength">1</param>
+        </data>
+      </element>
+    </optional>
+    <element name="hdlname">
+      <data type="string">
+        <param name="minLength">1</param>
+      </data>
+    </element>
+    <optional>
+      <element name="doc">
+        <text/>
+      </element>
+    </optional>
+    <element name="ids">
+      <oneOrMore>
+        <element name="id">
+          <optional>
+            <attribute name="revision">
+            <data type="string">
+              <param name="minLength">1</param>
+            </data>
+            </attribute>
+          </optional>
+          <text/>
+        </element>
+      </oneOrMore>
+    </element>
+  </interleave>
+  <!-- Order matters on these elements! -->
+  <optional>
+    <element name="registers">
+      <interleave>
+        <zeroOrMore>
+          <element name="setreg">
+            <interleave>
+              <element name="name">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+              <element name="address">
+                <data type="integer"/>
+              </element>
+              <optional>
+                <element name="value">
+                  <data type="string">
+                    <param name="minLength">1</param>
+                  </data>
+                </element>
+              </optional>
+            </interleave>
+          </element>
+        </zeroOrMore>
+      </interleave>
+      <interleave>
+        <zeroOrMore>
+          <element name="readback">
+            <interleave>
+              <element name="name">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+              <element name="address">
+                <data type="int"/>
+              </element>
+            </interleave>
+          </element>
+        </zeroOrMore>
+      </interleave>
+    </element>
+  </optional>
+  <optional>
+    <element name ="args">
+      <zeroOrMore>
+        <element name="arg">
+          <interleave>
+            <element name="name">
+              <data type="string">
+                <param name="minLength">1</param>
+              </data>
+            </element>
+            <element name="type">
+              <choice>
+                <value>int</value>
+                <value>double</value>
+                <value>string</value>
+                <value>bool</value>
+                <value>int_vector</value>
+              </choice>
+            </element>
+            <optional>
+              <element name="value">
+                <text/>
+              </element>
+            </optional>
+            <optional>
+              <element name="port">
+                <data type="int"/>
+              </element>
+            </optional>
+            <optional>
+              <element name="check">
+                <text/>
+              </element>
+            </optional>
+            <optional>
+              <element name="check_message">
+                <text/>
+              </element>
+            </optional>
+            <optional>
+              <element name="action">
+                <text/>
+              </element>
+            </optional>
+          </interleave>
+        </element>
+      </zeroOrMore>
+    </element>
+  </optional>
+  <element name="ports">
+    <interleave>
+      <zeroOrMore>
+        <element name="sink">
+          <interleave>
+            <element name="name">
+              <data type="string">
+                <param name="minLength">1</param>
+              </data>
+            </element>
+            <optional>
+              <element name="port">
+                <data type="int"/>
+              </element>
+            </optional>
+            <optional>
+              <element name="type">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+            </optional>
+            <optional>
+              <element name="vlen">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+            </optional>
+            <optional>
+              <element name="pkt_size">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+            </optional>
+          </interleave>
+        </element>
+      </zeroOrMore>
+      <zeroOrMore>
+        <element name="source">
+          <interleave>
+            <element name="name">
+              <data type="string">
+                <param name="minLength">1</param>
+              </data>
+            </element>
+            <optional>
+              <element name="port">
+                <data type="int"/>
+              </element>
+            </optional>
+            <optional>
+              <element name="type">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+            </optional>
+            <optional>
+              <element name="vlen">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+            </optional>
+            <optional>
+              <element name="pkt_size">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+            </optional>
+          </interleave>
+        </element>
+      </zeroOrMore>
+    </interleave>
+  </element>
+  <optional>
+    <element name="io">
+      <interleave>
+        <optional>
+          <element name="clock">
+            <data type="string">
+              <param name="minLength">1</param>
+            </data>
+          </element>
+        </optional>
+        <optional>
+          <element name="reset">
+            <data type="string">
+              <param name="minLength">1</param>
+            </data>
+          </element>
+        </optional>
+        <zeroOrMore>
+          <element name="port">
+            <interleave>
+              <element name="portname">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+              <element name="netname">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+            </interleave>
+          </element>
+        </zeroOrMore>
+        <optional>
+          <element name="gpio">
+            <interleave>
+              <element name="portname">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+              <element name="netname">
+                <data type="string">
+                  <param name="minLength">1</param>
+                </data>
+              </element>
+            </interleave>
+          </element>
+        </optional>
+        <zeroOrMore>
+          <element name="bus">
+            <interleave>
+              <optional>
+                <element name="portprefix">
+                  <data type="string">
+                    <param name="minLength">1</param>
+                  </data>
+                </element>
+              </optional>
+              <optional>
+                <element name="netprefix">
+                  <data type="string">
+                    <param name="minLength">1</param>
+                  </data>
+                </element>
+              </optional>
+              <element name="type">
+                  <choice>
+                    <value>chdr</value>
+                    <value>axi master</value>
+                    <value>axi slave</value>
+                    <value>axi stream master</value>
+                    <value>axi stream slave</value>
+                  </choice>
+              </element>
+              <optional>
+                <element name="vlen">
+                  <data type="int"/>
+                </element>
+              </optional>
+            </interleave>
+          </element>
+        </zeroOrMore>
+      </interleave>
+    </element>
+  </optional>
+  <optional>
+    <element name="parameters">
+      <zeroOrMore>
+        <element name="parameter">
+          <interleave>
+            <element name="name">
+              <data type="string">
+                <param name="minLength">1</param>
+              </data>
+            </element>
+            <element name="value">
+              <data type="string">
+                <param name="minLength">1</param>
+              </data>
+            </element>
+          </interleave>
+        </element>
+      </zeroOrMore>
+    </element>
+  </optional>
+</element>
