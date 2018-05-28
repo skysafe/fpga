@@ -25,7 +25,6 @@ NOCSCRIPT_RELAXNG_SCHEMA = os.path.join(os.path.dirname(os.path.realpath(__file_
 
 def get_default_block_parameters():
     default = {
-        "block"      : '',       # Base noc script filename
         "xmlfile"    : '',       # Full path to noc script XML
         "name"       : '',       # Block full name
         "blockname"  : '',       # Block name
@@ -93,6 +92,9 @@ def find(include_dir):
         os.path.join('include', 'uhd', 'rfnoc', 'blocks', '*.xml'),
         os.path.join('host', 'include', 'uhd', 'rfnoc', 'blocks', '*.xml'))
 
+    if include_dir is None:
+        return files
+
     # Search user provided paths
     if isinstance(include_dir, str):
         for postfix_search_path in postfix_search_paths:
@@ -151,7 +153,6 @@ def create_block(nocscript, file):
     Note: It is assumed the element tree has been validated
     """
     block = get_default_block_parameters()
-    block['block'] = os.path.splitext(os.path.basename(file))[0]
     block['xmlfile'] = file
     block['name'] = nocscript.find('name').text
     block['blockname'] = nocscript.find('blockname').text
@@ -196,7 +197,7 @@ def parse(files):
     with open(NOCSCRIPT_RELAXNG_SCHEMA, 'r') as f:
         relaxng = lxml.etree.RelaxNG(file=f)
 
-    nocblocks=[]
+    nocblocks={}
     for file in files:
         with open(file, 'r') as f:
             nocscript = lxml.objectify.fromstring(f.read())
@@ -209,8 +210,14 @@ def parse(files):
                 error_log = re.split('\n',str(relaxng.error_log))
                 for line in error_log:
                     line_split = re.split(':',line)
-                    print('line {0}: {1}'.format(line_split[1],line_split[6]))
+                    print('  line {0}: {1}'.format(line_split[1],line_split[6]))
                 raise AssertionError("Invalid noc script")
-            nocblocks.append(create_block(nocscript, file))
+            nocscript_name = os.path.splitext(os.path.basename(file))[0]
+            if nocscript_name in nocblocks:
+                print('[ERROR] Noc script files cannot have the same name:')
+                print('  '+file)
+                print('  '+nocblocks[nocscript_name]['xmlfile'])
+                raise AssertionError('Cannot have two noc script files with same name:')
+            nocblocks[nocscript_name] = create_block(nocscript, file)
 
     return nocblocks
