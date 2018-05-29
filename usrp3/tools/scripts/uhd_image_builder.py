@@ -49,9 +49,10 @@ noc_block_{blockname} {blockparameters}{instname} (
 """
 
 # Dict of standard bus templates
-BUS_TMPL = { \
-'chdr': {'cnt' : 0, 'template': \
-"""
+BUS_TMPL = {
+    'chdr': {
+        'cnt': 0,
+        'template': """
   .i_tdata  (ce_flat_o_tdata[CHDR_WIDTH*{n}-1:CHDR_WIDTH*{m}]),
   .i_tlast  (ce_o_tlast[{n}-1:{m}]),
   .i_tvalid (ce_o_tvalid[{n}-1:{m}]),
@@ -59,9 +60,11 @@ BUS_TMPL = { \
   .o_tdata  (ce_flat_i_tdata[CHDR_WIDTH*{n}-1:CHDR_WIDTH*{m}]),
   .o_tlast  (ce_i_tlast[{n}-1:{m}]),
   .o_tvalid (ce_i_tvalid[{n}-1:{m}]),
-  .o_tready (ce_i_tready[{n}-1:{m}]),"""},
-'axi master': {'cnt' : 0, 'template': \
-"""
+  .o_tready (ce_i_tready[{n}-1:{m}]),"""
+    },
+    'axi master': {
+        'cnt': 0,
+        'template': """
   .{portprefix}m_axi_awid     ({netprefix}s_axi_awid_flat[{n}-1:{m}]),
   .{portprefix}m_axi_awaddr   ({netprefix}s_axi_awaddr_flat[32*{n}-1:32*{m}]),
   .{portprefix}m_axi_awlen    ({netprefix}s_axi_awlen_flat[8*{n}-1:8*{m}]),
@@ -105,9 +108,11 @@ BUS_TMPL = { \
   .{portprefix}m_axi_rlast    ({netprefix}s_axi_rlast_flat[{n}-1:{m}]),
   .{portprefix}m_axi_ruser    ({netprefix}s_axi_ruser_flat[{n}-1:{m}]),
   .{portprefix}m_axi_rvalid   ({netprefix}s_axi_rvalid_flat[{n}-1:{m}]),
-  .{portprefix}m_axi_rready   ({netprefix}s_axi_rready_flat[{n}-1:{m}]),"""},
-'axi slave': {'cnt' : 0, 'template': \
-"""
+  .{portprefix}m_axi_rready   ({netprefix}s_axi_rready_flat[{n}-1:{m}]),"""
+    },
+    'axi slave': {
+        'cnt': 0,
+        'template': """
   .{portprefix}s_axi_awid     ({netprefix}m_axi_awid_flat[{n}-1:{m}]),
   .{portprefix}s_axi_awaddr   ({netprefix}m_axi_awaddr_flat[32*{n}-1:32*{m}]),
   .{portprefix}s_axi_awlen    ({netprefix}m_axi_awlen_flat[8*{n}-1:8*{m}]),
@@ -151,7 +156,8 @@ BUS_TMPL = { \
   .{portprefix}s_axi_rlast    ({netprefix}m_axi_rlast_flat[{n}-1:{m}]),
   .{portprefix}s_axi_ruser    ({netprefix}m_axi_ruser_flat[{n}-1:{m}]),
   .{portprefix}s_axi_rvalid   ({netprefix}m_axi_rvalid_flat[{n}-1:{m}]),
-  .{portprefix}s_axi_rready   ({netprefix}m_axi_rready_flat[{n}-1:{m}]),"""},
+  .{portprefix}s_axi_rready   ({netprefix}m_axi_rready_flat[{n}-1:{m}]),"""
+    }
 }
 
 # List of blocks that are part of our library but that do not take part
@@ -269,6 +275,7 @@ def parse_yml(ymlfile):
 
     return blocks
 
+
 def format_bus_str(buses):
     """
     Take a single block bus dictionary and format as a verilog string
@@ -287,6 +294,7 @@ def format_bus_str(buses):
 
     return busstr
 
+
 def format_param_str(parameters):
     """
     Take a single block parameter dictionary and format as a verilog string
@@ -302,6 +310,7 @@ def format_param_str(parameters):
             paramstrlist.append(currstr)
         paramstr = "#(\n%s)\n" % (",\n".join(paramstrlist))
     return paramstr
+
 
 def format_port_str(ports):
     """
@@ -319,6 +328,7 @@ def format_port_str(ports):
         portstr = "\n  %s," % (",\n  ".join(portstrlist))
     return portstr
 
+
 def create_vfiles(blocks, max_num_blocks):
     """
     Returns the verilogs
@@ -327,26 +337,26 @@ def create_vfiles(blocks, max_num_blocks):
         print("[GEN_RFNOC_INST ERROR] No blocks specified!")
         exit(1)
     if len(blocks) > max_num_blocks:
-        print("[GEN_RFNOC_INST ERROR] Trying to connect {} blocks, max is {}".\
-                format(len(blocks), max_num_blocks))
+        print("[GEN_RFNOC_INST ERROR] Trying to connect {} blocks, max is {}".format(
+            len(blocks), max_num_blocks))
         exit(1)
     vfile = HEADER_TMPL.format(num_ce=len(blocks))
     blocks_in_blacklist = [block for block in blocks if block['block'] in BLACKLIST]
     if len(blocks_in_blacklist):
-        print("[RFNoC ERROR]: The following blocks require special treatment and"\
-                " can't be instantiated with this tool:  ")
+        print("[RFNoC ERROR]: The following blocks require special treatment and"
+              " can't be instantiated with this tool:  ")
         for element in blocks_in_blacklist:
             print(" * ", element)
         print("Remove them from the command and run the uhd_image_builder.py again.")
         exit(1)
     print("--Using the following blocks to generate image:")
-    block_count={}
+    block_count = {}
     for block in blocks:
         block_count[block['block']] = 0
     for i, block in enumerate(blocks):
         block_count[block['block']] += 1
-        instname = "inst_{}{}".format(block['block'], "" \
-                if block_count[block['block']] == 1 else block_count[block['block']])
+        instname = "inst_{}{}".format(block['block'],
+                "" if block_count[block['block']] == 1 else block_count[block['block']])
         print("    * {}".format(block['block']))
         vfile += BLOCK_TMPL.format(blockname=block['hdlname'],
                                    blockparameters=format_param_str(block['parameters']),
@@ -358,6 +368,7 @@ def create_vfiles(blocks, max_num_blocks):
                                    buses=format_bus_str(block['buses']),
                                    ports=format_port_str(block['ports']))
     return vfile
+
 
 def file_generator(args, vfile):
     """
@@ -374,6 +385,7 @@ def file_generator(args, vfile):
         open(path_to_file, 'w').write(vfile)
     else:
         open(args.outfile, 'w').write(vfile)
+
 
 def append_re_line_sequence(filename, linepattern, newline):
     """ Detects the re 'linepattern' in the file. After its last occurrence,
@@ -393,13 +405,14 @@ def append_re_line_sequence(filename, linepattern, newline):
         newfile = oldfile.replace(last_line, last_line + newline + '\n')
         open(filename, 'w').write(newfile)
 
+
 def create_oot_include(device, include_dirs):
     """
     Create the include file for OOT RFNoC sources
     """
     oot_dir_list = []
     target_dir = device_dict(device.lower())
-    dest_srcs_file = os.path.join(get_scriptpath(), '..', '..', 'top',\
+    dest_srcs_file = os.path.join(get_scriptpath(), '..', '..', 'top',
             target_dir, 'Makefile.OOT.inc')
     incfile = open(dest_srcs_file, 'w')
     incfile.write(OOT_SRCS_FILE_HDR)
@@ -415,7 +428,7 @@ def create_oot_include(device, include_dirs):
             else:
                 print('No RFNoC module found at ' + os.path.abspath(currpath))
                 continue
-            if (not oot_path in oot_dir_list):
+            if (oot_path not in oot_dir_list):
                 oot_dir_list.append(oot_path)
                 named_path = os.path.join('$(BASE_DIR)', get_relative_path(get_basedir(), oot_path), 'rfnoc')
                 incfile.write(OOT_DIR_TMPL.format(oot_dir=named_path))
@@ -449,7 +462,7 @@ def append_item_into_file(device, include_dir):
             dirs = os.path.join(directory, '')
             checkdir_v(dirs)
             oot_srcs_file = os.path.join(dirs, 'Makefile.srcs')
-            dest_srcs_file = os.path.join(get_scriptpath(), '..', '..', 'top',\
+            dest_srcs_file = os.path.join(get_scriptpath(), '..', '..', 'top',
                     target_dir, 'Makefile.srcs')
             oot_srcs_list = readfile(oot_srcs_file)
             oot_srcs_list = [w.replace('SOURCES_PATH', dirs) for w in oot_srcs_list]
@@ -461,8 +474,7 @@ def append_item_into_file(device, include_dir):
             if len(prefixlines) == 0:
                 lines = re.findall(linepattern, oldfile, flags=re.MULTILINE)
                 if len(lines) == 0:
-                    print("Pattern {} not found. Could not write {} file".\
-                            format(linepattern, oldfile))
+                    print("Pattern {} not found. Could not write {} file".format(linepattern, oldfile))
                     return
                 else:
                     last_line = lines[-1]
@@ -474,6 +486,7 @@ def append_item_into_file(device, include_dir):
                 srcs = "".join(notin)
             newfile = oldfile.replace(last_line, last_line + srcs)
             open(dest_srcs_file, 'w').write(newfile)
+
 
 def compare(file1, file2):
     """
@@ -492,6 +505,7 @@ def compare(file1, file2):
                     notinside.append(item)
     return notinside
 
+
 def readfile(files):
     """
     compares two files line by line, and returns the lines of first file that
@@ -506,14 +520,14 @@ def readfile(files):
             contents.append(item)
     return contents
 
+
 def build(args):
     " build "
     cwd = get_scriptpath()
     target_dir = device_dict(args.device.lower())
     build_dir = os.path.join(cwd, '..', '..', 'top', target_dir)
     if os.path.isdir(build_dir):
-        print("changing temporarily working directory to {0}".\
-                format(build_dir))
+        print("changing temporarily working directory to {0}".format(build_dir))
         os.chdir(build_dir)
         make_cmd = ". ./setupenv.sh "
         if args.clean_all:
@@ -526,6 +540,7 @@ def build(args):
         ret_val = os.system(make_cmd)
         os.chdir(cwd)
     return ret_val
+
 
 def device_dict(args):
     """
@@ -540,6 +555,7 @@ def device_dict(args):
         'n310':'n3xx'
     }
     return build_dir[args]
+
 
 def dtarget(args):
     """
@@ -558,11 +574,12 @@ def dtarget(args):
     else:
         return args.target
 
+
 def checkdir_v(include_dir):
     """
     Checks the existance of verilog files in the given include dir
     """
-    nfiles = glob.glob(os.path.join(include_dir,'')+'*.v')
+    nfiles = glob.glob(os.path.join(include_dir, '')+'*.v')
     if len(nfiles) == 0:
         print('[ERROR] No verilog files found in the given directory')
         exit(1)
@@ -570,17 +587,20 @@ def checkdir_v(include_dir):
         print('Verilog sources found!')
     return
 
+
 def get_scriptpath():
     """
     returns the absolute path where a script is located
     """
     return os.path.dirname(os.path.realpath(__file__))
 
+
 def get_basedir():
     """
     returns the base directory (BASE_DIR) used in rfnoc build process
     """
     return os.path.abspath(os.path.join(get_scriptpath(), '..', '..', 'top'))
+
 
 def get_relative_path(base, target):
     """
@@ -615,7 +635,7 @@ def create_blocklist(requested_blocks, available_blocks):
     requested_blocks. Block parameters in requested_blocks override
     the matching parameters in available_blocks.
     """
-    blocklist=[]
+    blocklist = []
     # Validate each requested block against the 'definition' block in available_blocks
     for req_block in requested_blocks:
         # Block noc script filenames are unique, so requested block should match an available block
@@ -633,6 +653,7 @@ def create_blocklist(requested_blocks, available_blocks):
         blocklist.append(block)
 
     return blocklist
+
 
 def main():
     " Go, go, go! "
@@ -662,14 +683,14 @@ def main():
         print("Using yml file. Ignoring command line blocks arguments")
         requested_blocks = parse_yml(args.yml)
     else:
-        requested_blocks=[]
+        requested_blocks = []
         for blockname in args.blocks:
             block = nocscript_parser.get_default_block_parameters()
             block["block"] = blockname
             requested_blocks.append(block)
     if (len(requested_blocks) > args.max_num_blocks):
         print("[ERROR] Requested {0} blocks, but specified max of {1} blocks".format(
-            len(requested_blocks),args.max_num_blocks))
+            len(requested_blocks), args.max_num_blocks))
     # If space left for extra blocks, fill with FIFOs
     if args.fill_with_fifos:
         for _ in range(len(requested_blocks), args.max_num_blocks):
@@ -680,12 +701,12 @@ def main():
     vfile = create_vfiles(blocklist, args.max_num_blocks)
     file_generator(args, vfile)
     create_oot_include(args.device, args.oot_include_dir)
-    if args.outfile is  None:
+    if args.outfile is None:
         return build(args)
     else:
-        print("Instantiation file generated at {}".\
-                format(args.outfile))
-        return 0
+        print("Instantiation file generated at {}".format(args.outfile))
+        return
+
 
 if __name__ == "__main__":
     exit(main())
