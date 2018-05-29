@@ -23,26 +23,27 @@ import lxml.objectify
 
 NOCSCRIPT_RELAXNG_SCHEMA = os.path.join(os.path.dirname(os.path.realpath(__file__)), "nocscript.rng")
 
+
 def get_default_block_parameters():
     default = {
-        "xmlfile"    : '',       # Full path to noc script XML
-        "name"       : '',       # Block full name
-        "blockname"  : '',       # Block name
-        "key"        : '',       # Unique key for block
-        "hdlname"    : '',       # Name of block's HDL module/entity
-        "doc"        : '',       # Documentation
-        "ids"        : [],       # NOC IDs
-        "setregs"    : {},       # Settings bus setting registers
-        "readbacks"  : {},       # Settings bus readback regs
-        "args"       : {},       # Noc script args
-        "sinks"      : {},       # Sink block ports
-        "sources"    : {},       # Source block ports
-        "clock"      : 'ce_clk', # Net to assign to ce_clk input
-        "reset"      : 'ce_rst', # Net to assign to ce_rst input
-        "ports"      : {},       # Dict of extra ports to instantiate on block IO
-        "gpio"       : {},       # Dict of blocks's general purpose IO
+        "xmlfile"    : '',        # Full path to noc script XML
+        "name"       : '',        # Block full name
+        "blockname"  : '',        # Block name
+        "key"        : '',        # Unique key for block
+        "hdlname"    : '',        # Name of block's HDL module/entity
+        "doc"        : '',        # Documentation
+        "ids"        : [],        # NOC IDs
+        "setregs"    : {},        # Settings bus setting registers
+        "readbacks"  : {},        # Settings bus readback regs
+        "args"       : {},        # Noc script args
+        "sinks"      : {},        # Sink block ports
+        "sources"    : {},        # Source block ports
+        "clock"      : 'ce_clk',  # Net to assign to ce_clk input
+        "reset"      : 'ce_rst',  # Net to assign to ce_rst input
+        "ports"      : {},        # Dict of extra ports to instantiate on block IO
+        "gpio"       : {},        # Dict of blocks's general purpose IO
         "buses"      : [get_default_bus_parameters()],  # List of dicts of block's buses
-        "parameters" : {}}       # Dict of block's HDL parameters/generics
+        "parameters" : {}}        # Dict of block's HDL parameters/generics
     return default
 
 
@@ -80,7 +81,7 @@ def find(include_dir):
     """
     Returns a list of nocblock xml files
     """
-    files=[]
+    files = []
     postfix_search_paths = (
         '*.xml',
         # Install location
@@ -123,14 +124,14 @@ def find_default():
     """
     Returns a list of nocblock xml files by looking at predefined paths
     """
-    files=[]
-    search_paths = filter(None,(
-    # Installed via PYBOMBS
-    os.environ.get('PYBOMBS_PREFIX') if os.environ.get('PYBOMBS_PREFIX') else None,
-    # fpga-src path in UHD src
-    os.path.join('..', '..', '..', '..', 'uhd', 'host', 'include', 'uhd', 'rfnoc', 'blocks', '*.xml'),
-    # usr local install
-    os.path.join('/usr', 'local', 'share', 'uhd', 'rfnoc', 'blocks', '*.xml')))
+    files = []
+    search_paths = filter(None, (
+        # Installed via PYBOMBS
+        os.environ.get('PYBOMBS_PREFIX') if os.environ.get('PYBOMBS_PREFIX') else None,
+        # fpga-src path in UHD src
+        os.path.join('..', '..', '..', '..', 'uhd', 'host', 'include', 'uhd', 'rfnoc', 'blocks', '*.xml'),
+        # usr local install
+        os.path.join('/usr', 'local', 'share', 'uhd', 'rfnoc', 'blocks', '*.xml')))
 
     # default paths
     for search_path in search_paths:
@@ -140,20 +141,25 @@ def find_default():
     return files
 
 
-def copy_parameters(elem, d):
+def merge_parameters(elem, d):
+    """
+    Overwrite dict with parameters from element tree, but
+    only if they exist
+    """
+    d_merge = d
     for key in d.keys():
         if elem.find(key) is not None:
-            d[key] = elem.find(key).text
-    return d
+            d_merge[key] = elem.find(key).text
+    return d_merge
 
 
-def create_block(nocscript, file):
+def create_block(nocscript, xmlfile):
     """
     Convert nocscript element tree into an easier to use dict
     Note: It is assumed the element tree has been validated
     """
     block = get_default_block_parameters()
-    block['xmlfile'] = file
+    block['xmlfile'] = xmlfile
     block['name'] = nocscript.find('name').text
     block['blockname'] = nocscript.find('blockname').text
     block['hdlname'] = nocscript.find('hdlname').text
@@ -167,11 +173,11 @@ def create_block(nocscript, file):
     for reg in nocscript.findall('registers/readback'):
         block['readbacks'][reg.find('name').text] = reg.find('address').text
     for arg in nocscript.findall('args/arg'):
-        block['args'][arg.find('name').text] = copy_parameters(arg, get_default_arg_parameters())
+        block['args'][arg.find('name').text] = merge_parameters(arg, get_default_arg_parameters())
     for sink in nocscript.findall('ports/sink'):
-        block['sinks'][sink.find('name').text] = copy_parameters(sink, get_default_blockport_parameters())
+        block['sinks'][sink.find('name').text] = merge_parameters(sink, get_default_blockport_parameters())
     for src in nocscript.findall('ports/source'):
-        block['sources'][src.find('name').text] = copy_parameters(src, get_default_blockport_parameters())
+        block['sources'][src.find('name').text] = merge_parameters(src, get_default_blockport_parameters())
     if nocscript.find('io/clock') is not None:
         block['clock'] = nocscript.find('io/clock').text
     if nocscript.find('io/reset') is not None:
@@ -181,13 +187,13 @@ def create_block(nocscript, file):
     for gpio in nocscript.findall('io/gpio'):
         block['gpio'][gpio.find('portname').text] = gpio.find('netname').text
     if nocscript.find('io/bus') is not None:
-        block['buses'] = [copy_parameters(bus, get_default_bus_parameters()) for bus in nocscript.findall('io/bus')]
+        block['buses'] = [merge_parameters(bus, get_default_bus_parameters()) for bus in nocscript.findall('io/bus')]
     for param in nocscript.findall('parameters/parameter'):
         block['parameters'][param.find('name').text] = param.find('value').text
     return block
 
 
-def parse(files):
+def parse(xmlfiles):
     """
     Return a list of nocblocks by parsing nocscript xml files.
     Noc script files are linted for the required subset of fields and
@@ -197,27 +203,27 @@ def parse(files):
     with open(NOCSCRIPT_RELAXNG_SCHEMA, 'r') as f:
         relaxng = lxml.etree.RelaxNG(file=f)
 
-    nocblocks={}
-    for file in files:
-        with open(file, 'r') as f:
+    nocblocks = {}
+    for xmlfile in xmlfiles:
+        with open(xmlfile, 'r') as f:
             nocscript = lxml.objectify.fromstring(f.read())
             # Validate with relax ng
             try:
                 relaxng.assert_(nocscript)
             except BaseException:
-                print('[ERROR] Failed to parse '+file)
+                print('[ERROR] Failed to parse '+xmlfile)
                 print('Parser errors:')
-                error_log = re.split('\n',str(relaxng.error_log))
+                error_log = re.split('\n', str(relaxng.error_log))
                 for line in error_log:
-                    line_split = re.split(':',line)
-                    print('  line {0}: {1}'.format(line_split[1],line_split[6]))
+                    line_split = re.split(':', line)
+                    print('  line {0}: {1}'.format(line_split[1], line_split[6]))
                 raise AssertionError("Invalid noc script")
-            nocscript_name = os.path.splitext(os.path.basename(file))[0]
+            nocscript_name = os.path.splitext(os.path.basename(xmlfile))[0]
             if nocscript_name in nocblocks:
                 print('[ERROR] Noc script files cannot have the same name:')
-                print('  '+file)
+                print('  '+xmlfile)
                 print('  '+nocblocks[nocscript_name]['xmlfile'])
                 raise AssertionError('Cannot have two noc script files with same name:')
-            nocblocks[nocscript_name] = create_block(nocscript, file)
+            nocblocks[nocscript_name] = create_block(nocscript, xmlfile)
 
     return nocblocks
