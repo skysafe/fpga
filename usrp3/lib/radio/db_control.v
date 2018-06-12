@@ -8,9 +8,13 @@
 module db_control #(
   // Drive SPI core with input spi_clk instead of ce_clk. This is useful if ce_clk is very slow which
   // would cause spi transactions to take a long time. WARNING: This adds a clock crossing FIFO!
-  parameter USE_SPI_CLK = 0,
-  parameter SR_BASE     = 160,
-  parameter RB_BASE     = 16
+  parameter USE_SPI_CLK              = 0,
+  parameter SR_BASE                  = 160,
+  parameter RB_BASE                  = 16,
+  parameter FP_GPIO_FAB_CTRL_REG_EN  = 1,
+  parameter FP_GPIO_FORCE_FAB_CTRL   = 0,
+  parameter DB_GPIO_FAB_CTRL_REG_EN  = 1,
+  parameter DB_GPIO_FORCE_FAB_CTRL   = 0
 )(
   // Commands from Radio Core
   input clk, input reset,
@@ -19,8 +23,8 @@ module db_control #(
   input run_rx, input run_tx,
   // Frontend / Daughterboard I/O
   input [31:0] misc_ins, output [31:0] misc_outs,
-  input [31:0] fp_gpio_in, output [31:0] fp_gpio_out, output [31:0] fp_gpio_ddr, input [31:0] fp_gpio_fab,
-  input [31:0] db_gpio_in, output [31:0] db_gpio_out, output [31:0] db_gpio_ddr, input [31:0] db_gpio_fab,
+  input [31:0] fp_gpio_in, output [31:0] fp_gpio_out, output [31:0] fp_gpio_ddr, input [31:0] fp_gpio_fab, output [31:0] fp_gpio_rb,
+  input [31:0] db_gpio_in, output [31:0] db_gpio_out, output [31:0] db_gpio_ddr, input [31:0] db_gpio_fab, output [31:0] db_gpio_rb,
   output [31:0] leds,
   input spi_clk, input spi_rst, output [7:0] sen, output sclk, output mosi, input miso
 );
@@ -49,15 +53,14 @@ module db_control #(
   reg spi_readback_stb_hold;
   reg [31:0] spi_readback_hold;
   wire [31:0] spi_readback_sync;
-  wire [31:0] fp_gpio_readback, db_gpio_readback;
   always @* begin
     case(rb_addr)
       // Use a latched spi readback stobe so additional readbacks after a SPI transaction will work
       RB_MISC_IO  : {rb_stb, rb_data} <= {spi_readback_stb_hold, {misc_ins, misc_outs}};
       RB_SPI      : {rb_stb, rb_data} <= {spi_readback_stb_hold, {32'd0, spi_readback_hold}};
       RB_LEDS     : {rb_stb, rb_data} <= {spi_readback_stb_hold, {32'd0, leds}};
-      RB_DB_GPIO  : {rb_stb, rb_data} <= {spi_readback_stb_hold, {32'd0, db_gpio_readback}};
-      RB_FP_GPIO  : {rb_stb, rb_data} <= {spi_readback_stb_hold, {32'd0, fp_gpio_readback}};
+      RB_DB_GPIO  : {rb_stb, rb_data} <= {spi_readback_stb_hold, {32'd0, db_gpio_rb}};
+      RB_FP_GPIO  : {rb_stb, rb_data} <= {spi_readback_stb_hold, {32'd0, fp_gpio_rb}};
       default     : {rb_stb, rb_data} <= {spi_readback_stb_hold, {64'h0BADC0DE0BADC0DE}};
     endcase
   end
@@ -65,26 +68,49 @@ module db_control #(
   /********************************************************
   ** GPIO
   ********************************************************/
-  gpio_atr #(.BASE(SR_LEDS), .WIDTH(32), .FAB_CTRL_EN(0), .DEFAULT_DDR(32'hFFFF_FFFF), .DEFAULT_IDLE(32'd0)) leds_gpio_atr (
+  gpio_atr #(
+    .BASE(SR_LEDS),
+    .WIDTH(32),
+    .FAB_CTRL_REG_EN(0),
+    .DEFAULT_FAB_CTRL(32'd0),
+    .DEFAULT_DDR(32'hFFFF_FFFF),
+    .DEFAULT_IDLE(32'd0))
+  leds_gpio_atr (
     .clk(clk), .reset(reset),
     .set_stb(set_stb), .set_addr(set_addr), .set_data(set_data),
     .rx(run_rx), .tx(run_tx),
     .gpio_in(32'd0), .gpio_out(leds), .gpio_ddr(/*unused, assumed output only*/),
     .gpio_out_fab(32'h00000000 /*LEDs don't have fabric control*/), .gpio_sw_rb());
 
-  gpio_atr #(.BASE(SR_FP_GPIO), .WIDTH(32), .FAB_CTRL_EN(1), .DEFAULT_DDR(32'hFFFF_FFFF), .DEFAULT_IDLE(32'd0)) fp_gpio_atr (
+  gpio_atr #(
+    .BASE(SR_FP_GPIO),
+    .WIDTH(32),
+    .FAB_CTRL_REG_EN(FP_GPIO_FAB_CTRL_REG_EN),
+    .FORCE_FAB_CTRL(FP_GPIO_FORCE_FAB_CTRL),
+    .DEFAULT_FAB_CTRL(32'd0),
+    .DEFAULT_DDR(32'hFFFF_FFFF),
+    .DEFAULT_IDLE(32'd0))
+  fp_gpio_atr (
     .clk(clk), .reset(reset),
     .set_stb(set_stb), .set_addr(set_addr), .set_data(set_data),
     .rx(run_rx), .tx(run_tx),
     .gpio_in(fp_gpio_in), .gpio_out(fp_gpio_out), .gpio_ddr(fp_gpio_ddr),
-    .gpio_out_fab(fp_gpio_fab), .gpio_sw_rb(fp_gpio_readback));
+    .gpio_out_fab(fp_gpio_fab), .gpio_sw_rb(fp_gpio_rb));
 
-  gpio_atr #(.BASE(SR_DB_GPIO), .WIDTH(32), .FAB_CTRL_EN(1), .DEFAULT_DDR(32'hFFFF_FFFF), .DEFAULT_IDLE(32'd0)) db_gpio_atr (
+  gpio_atr #(
+    .BASE(SR_DB_GPIO),
+    .WIDTH(32),
+    .FAB_CTRL_REG_EN(DB_GPIO_FAB_CTRL_REG_EN),
+    .FORCE_FAB_CTRL(DB_GPIO_FORCE_FAB_CTRL),
+    .DEFAULT_FAB_CTRL(32'd0),
+    .DEFAULT_DDR(32'hFFFF_FFFF),
+    .DEFAULT_IDLE(32'd0))
+  db_gpio_atr (
     .clk(clk), .reset(reset),
     .set_stb(set_stb), .set_addr(set_addr), .set_data(set_data),
     .rx(run_rx), .tx(run_tx),
     .gpio_in(db_gpio_in), .gpio_out(db_gpio_out), .gpio_ddr(db_gpio_ddr),
-    .gpio_out_fab(db_gpio_fab), .gpio_sw_rb(db_gpio_readback));
+    .gpio_out_fab(db_gpio_fab), .gpio_sw_rb(db_gpio_rb));
 
   /********************************************************
   ** SPI
