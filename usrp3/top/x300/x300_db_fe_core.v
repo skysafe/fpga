@@ -8,9 +8,14 @@
 module x300_db_fe_core #(
   // Drive SPI core with input spi_clk instead of ce_clk. This is useful if ce_clk is very slow which
   // would cause spi transactions to take a long time. WARNING: This adds a clock crossing FIFO!
-  parameter USE_SPI_CLK = 0,
-  parameter [7:0] SR_DB_FE_BASE = 160,
-  parameter [7:0] RB_DB_FE_BASE = 16
+  parameter USE_SPI_CLK             = 0,
+  parameter [7:0] SR_DB_FE_BASE     = 160,
+  parameter [7:0] RB_DB_FE_BASE     = 16,
+  parameter FP_GPIO_FAB_CTRL_REG_EN = 1,
+  parameter FP_GPIO_FORCE_FAB_CTRL  = 0,
+  parameter DB_GPIO_FAB_CTRL_REG_EN = 1,
+  parameter DB_GPIO_FORCE_FAB_CTRL  = 0,
+  parameter BYPASS_REALMODE_DSP     = 0
 )(
   input clk, input reset,
   // Commands from Radio Core
@@ -22,8 +27,8 @@ module x300_db_fe_core #(
   output rx_stb, input [31:0] rx_data_in, output [31:0] rx_data_out, input rx_running,
   // Frontend / Daughterboard I/O
   input [31:0] misc_ins, output [31:0] misc_outs,
-  input [31:0] fp_gpio_in, output [31:0] fp_gpio_out, output [31:0] fp_gpio_ddr, input [31:0] fp_gpio_fab,
-  input [31:0] db_gpio_in, output [31:0] db_gpio_out, output [31:0] db_gpio_ddr, input [31:0] db_gpio_fab,
+  input [31:0] fp_gpio_in, output [31:0] fp_gpio_out, output [31:0] fp_gpio_ddr, input [31:0] fp_gpio_fab, output [31:0] fp_gpio_rb,
+  input [31:0] db_gpio_in, output [31:0] db_gpio_out, output [31:0] db_gpio_ddr, input [31:0] db_gpio_fab, output [31:0] db_gpio_rb,
   output [31:0] leds,
   input spi_clk, input spi_rst, output [7:0] sen, output sclk, output mosi, input miso
 );
@@ -35,15 +40,17 @@ module x300_db_fe_core #(
   ** Common dboard control
   ********************************************************/
   db_control #(
-    .USE_SPI_CLK(USE_SPI_CLK), .SR_BASE(SR_DB_FE_BASE), .RB_BASE(RB_DB_FE_BASE)
+    .USE_SPI_CLK(USE_SPI_CLK), .SR_BASE(SR_DB_FE_BASE), .RB_BASE(RB_DB_FE_BASE),
+    .FP_GPIO_FAB_CTRL_REG_EN(FP_GPIO_FAB_CTRL_REG_EN), .FP_GPIO_FORCE_FAB_CTRL(FP_GPIO_FORCE_FAB_CTRL),
+    .DB_GPIO_FAB_CTRL_REG_EN(DB_GPIO_FAB_CTRL_REG_EN), .DB_GPIO_FORCE_FAB_CTRL(DB_GPIO_FORCE_FAB_CTRL)
   ) db_control_i (
     .clk(clk), .reset(reset),
     .set_stb(set_stb), .set_addr(set_addr), .set_data(set_data),
     .rb_stb(rb_stb), .rb_addr(rb_addr), .rb_data(rb_data),
     .run_rx(rx_running), .run_tx(tx_running),
     .misc_ins(misc_ins), .misc_outs(misc_outs),
-    .fp_gpio_in(fp_gpio_in), .fp_gpio_out(fp_gpio_out), .fp_gpio_ddr(fp_gpio_ddr), .fp_gpio_fab(fp_gpio_fab),
-    .db_gpio_in(db_gpio_in), .db_gpio_out(db_gpio_out), .db_gpio_ddr(db_gpio_ddr), .db_gpio_fab(db_gpio_fab),
+    .fp_gpio_in(fp_gpio_in), .fp_gpio_out(fp_gpio_out), .fp_gpio_ddr(fp_gpio_ddr), .fp_gpio_fab(fp_gpio_fab), .fp_gpio_rb(fp_gpio_rb),
+    .db_gpio_in(db_gpio_in), .db_gpio_out(db_gpio_out), .db_gpio_ddr(db_gpio_ddr), .db_gpio_fab(db_gpio_fab), .db_gpio_rb(db_gpio_rb),
     .leds(leds),
     .spi_clk(spi_clk), .spi_rst(spi_rst), .sen(sen), .sclk(sclk), .mosi(mosi), .miso(miso)
   );
@@ -63,7 +70,7 @@ module x300_db_fe_core #(
   rx_frontend_gen3 #(
     .SR_MAG_CORRECTION(SR_RX_FE_BASE + 0), .SR_PHASE_CORRECTION(SR_RX_FE_BASE + 1), .SR_OFFSET_I(SR_RX_FE_BASE + 2),
     .SR_OFFSET_Q(SR_RX_FE_BASE + 3), .SR_IQ_MAPPING(SR_RX_FE_BASE + 4), .SR_HET_PHASE_INCR(SR_RX_FE_BASE + 5),
-    .BYPASS_DC_OFFSET_CORR(0), .BYPASS_IQ_COMP(0), .BYPASS_REALMODE_DSP(0),
+    .BYPASS_DC_OFFSET_CORR(0), .BYPASS_IQ_COMP(0), .BYPASS_REALMODE_DSP(BYPASS_REALMODE_DSP),
     .DEVICE("7SERIES")
   ) rx_fe_corr_i (
     .clk(clk), .reset(reset), .sync_in(time_sync),
