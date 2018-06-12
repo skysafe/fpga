@@ -38,11 +38,11 @@ def get_default_block_parameters():
         "args"       : {},        # Noc script args
         "sinks"      : {},        # Sink block ports
         "sources"    : {},        # Source block ports
-        "clock"      : 'ce_clk',  # Net to assign to ce_clk input
-        "reset"      : 'ce_rst',  # Net to assign to ce_rst input
+        "clock"      : None,      # Net to assign to ce_clk input
+        "reset"      : None,      # Net to assign to ce_rst input
         "ports"      : {},        # Dict of extra ports to instantiate on block IO
         "gpio"       : {},        # Dict of blocks's general purpose IO
-        "buses"      : [get_default_bus_parameters()],  # List of dicts of block's buses
+        "buses"      : [],        # List of dicts of block's buses
         "parameters" : {}}        # Dict of block's HDL parameters/generics
     return default
 
@@ -71,7 +71,7 @@ def get_default_bus_parameters():
     default = {
         'portprefix' : '',
         'netprefix'  : '',
-        'type'       : 'chdr',
+        'type'       : '',
         'vlen'       : 1
     }
     return default
