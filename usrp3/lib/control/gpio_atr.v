@@ -7,11 +7,13 @@
 //
 
 module gpio_atr #(
-  parameter BASE          = 0,
-  parameter WIDTH         = 32,
-  parameter FAB_CTRL_EN   = 0,
-  parameter DEFAULT_DDR   = 0,
-  parameter DEFAULT_IDLE  = 0
+  parameter BASE                         = 0,
+  parameter WIDTH                        = 32,
+  parameter FAB_CTRL_REG_EN              = 0,
+  parameter [WIDTH-1:0] FORCE_FAB_CTRL   = 0,
+  parameter [WIDTH-1:0] DEFAULT_FAB_CTRL = 0,
+  parameter [WIDTH-1:0] DEFAULT_DDR      = 0,
+  parameter [WIDTH-1:0] DEFAULT_IDLE     = 0
 ) (
   input clk, input reset,                                       //Clock and reset
   input set_stb, input [7:0] set_addr, input [31:0] set_data,   //Settings control interface
@@ -51,12 +53,12 @@ module gpio_atr #(
     .clk(clk),.rst(reset),.strobe(set_stb),.addr(set_addr), .in(set_data),
     .out(atr_disable),.changed());
 
-  generate if (FAB_CTRL_EN == 1) begin
-    setting_reg #(.my_addr(BASE+6), .width(WIDTH)) reg_fabric_ctrl (
+  generate if (FAB_CTRL_REG_EN == 1) begin
+    setting_reg #(.my_addr(BASE+6), .width(WIDTH), .at_reset(DEFAULT_FAB_CTRL)) reg_fabric_ctrl (
       .clk(clk),.rst(reset),.strobe(set_stb),.addr(set_addr), .in(set_data),
       .out(fabric_ctrl),.changed());
   end else begin
-    assign fabric_ctrl = {WIDTH{1'b0}};
+    assign fabric_ctrl = DEFAULT_FAB_CTRL;
   end endgenerate
 
   //Pipeline rx and tx signals for easier timing closure
@@ -79,7 +81,11 @@ module gpio_atr #(
    //Pipeline input, output and direction
    //For fabric access, insert MUX as close to the IO as possible
    always @(posedge clk) begin
-     gpio_out[i] <= fabric_ctrl[i] ? gpio_out_fab[i] : ogpio[i];
+     if (FORCE_FAB_CTRL[i]) begin
+       gpio_out[i] <= gpio_out_fab[i];
+     end else begin
+       gpio_out[i] <= fabric_ctrl[i] ? gpio_out_fab[i] : ogpio[i];
+     end
    end
   end endgenerate
 
