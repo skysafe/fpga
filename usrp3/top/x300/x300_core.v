@@ -221,6 +221,9 @@ module x300_core #(
    //////////////////////////////////////////////////////////////////////////////////////////////
    localparam CHDR_WIDTH = 64;
 
+   // FPGPIO for use by rfnoc blocks
+   wire [31:0] fp_gpio_fab, fp_gpio_rb;
+
    // Included automatically instantiated CEs sources file created by RFNoC mod tool
 `ifdef RFNOC
  `ifdef X300
@@ -507,7 +510,7 @@ module x300_core #(
 
    // Daughter board I/O
    wire [31:0] leds[0:3];
-   wire [31:0] fp_gpio_r_in[0:3], fp_gpio_r_out[0:3], fp_gpio_r_ddr[0:3];
+   wire [31:0] fp_gpio_r_in[0:3], fp_gpio_r_out[0:3], fp_gpio_r_ddr[0:3], fp_gpio_fab_arr[0:3], fp_gpio_rb_arr[0:3];
    wire [31:0] db_gpio_in[0:3], db_gpio_out[0:3], db_gpio_ddr[0:3];
    wire [31:0] misc_outs[0:3];
    reg  [31:0] misc_ins[0:3];
@@ -605,8 +608,10 @@ module x300_core #(
          .tx_stb(tx_stb[i]), .tx_data_in(tx_data[i]), .tx_data_out(tx_data_out[i]), .tx_running(tx_running[i]), 
          .rx_stb(rx_stb[i]), .rx_data_in(rx_data_in[i]), .rx_data_out(rx_data[i]), .rx_running(rx_running[i]),
          .misc_ins(misc_ins[i]), .misc_outs(misc_outs[i]),
-         .fp_gpio_in(fp_gpio_r_in[i]), .fp_gpio_out(fp_gpio_r_out[i]), .fp_gpio_ddr(fp_gpio_r_ddr[i]), .fp_gpio_fab(),
-         .db_gpio_in(db_gpio_in[i]), .db_gpio_out(db_gpio_out[i]), .db_gpio_ddr(db_gpio_ddr[i]), .db_gpio_fab(),
+         .fp_gpio_in(fp_gpio_r_in[i]), .fp_gpio_out(fp_gpio_r_out[i]), .fp_gpio_ddr(fp_gpio_r_ddr[i]),
+         .fp_gpio_fab(fp_gpio_fab_arr[i]), .fp_gpio_rb(fp_gpio_rb_arr[i]),
+         .db_gpio_in(db_gpio_in[i]), .db_gpio_out(db_gpio_out[i]), .db_gpio_ddr(db_gpio_ddr[i]),
+         .db_gpio_fab(), .db_gpio_rb(),
          .leds(leds[i]),
          .spi_clk(radio_clk), .spi_rst(radio_rst),
          .sen(sen[i]), .sclk(sclk[i]), .mosi(mosi[i]), .miso(miso[i])
@@ -641,6 +646,9 @@ module x300_core #(
    assign {fp_gpio_r_in[3], fp_gpio_r_in[2]} = {32'b0, 32'b0};
    assign fp_gpio_out = fp_gpio_r_out[0];  //fp_gpio_r_out[1,2,3] unused
    assign fp_gpio_ddr = fp_gpio_r_ddr[0];  //fp_gpio_ddr[1,2,3] unused
+   assign {fp_gpio_fab_arr[1], fp_gpio_fab_arr[0]} = {32'd0, fp_gpio_fab};
+   assign {fp_gpio_fab_arr[3], fp_gpio_fab_arr[2]} = {32'd0, 32'd0};
+   assign fp_gpio_rb = fp_gpio_rb_arr[0];
 
    //SPI
    assign {sen0, sclk0, mosi0} = {sen[0], sclk[0], mosi[0]};   //*[1] unused
