@@ -37,7 +37,9 @@
             </data>
             </attribute>
           </optional>
-          <text/>
+          <data type="hexBinary">
+            <param name="minLength">2</param>
+          </data>
         </element>
       </oneOrMore>
     </element>
@@ -55,7 +57,7 @@
                 </data>
               </element>
               <element name="address">
-                <data type="integer"/>
+                <data type="int"/>
               </element>
               <optional>
                 <element name="value">
@@ -233,12 +235,12 @@
         <zeroOrMore>
           <element name="port">
             <interleave>
-              <element name="portname">
+              <element name="name">
                 <data type="string">
                   <param name="minLength">1</param>
                 </data>
               </element>
-              <element name="netname">
+              <element name="assign">
                 <data type="string">
                   <param name="minLength">1</param>
                 </data>
@@ -246,34 +248,18 @@
             </interleave>
           </element>
         </zeroOrMore>
-        <optional>
-          <element name="gpio">
-            <interleave>
-              <element name="portname">
-                <data type="string">
-                  <param name="minLength">1</param>
-                </data>
-              </element>
-              <element name="netname">
-                <data type="string">
-                  <param name="minLength">1</param>
-                </data>
-              </element>
-            </interleave>
-          </element>
-        </optional>
         <zeroOrMore>
           <element name="bus">
             <interleave>
               <optional>
-                <element name="portprefix">
+                <element name="nameprefix">
                   <data type="string">
                     <param name="minLength">1</param>
                   </data>
                 </element>
               </optional>
               <optional>
-                <element name="netprefix">
+                <element name="assignprefix">
                   <data type="string">
                     <param name="minLength">1</param>
                   </data>
@@ -282,12 +268,18 @@
               <element name="type">
                   <choice>
                     <value>chdr</value>
-                    <value>axi master</value>
-                    <value>axi slave</value>
-                    <value>axi stream master</value>
-                    <value>axi stream slave</value>
+                    <value>axi</value>
+                    <value>axi stream</value>
                   </choice>
               </element>
+              <optional>
+                <element name="direction">
+                    <choice>
+                      <value>master</value>
+                      <value>slave</value>
+                    </choice>
+                </element>
+              </optional>
               <optional>
                 <element name="vlen">
                   <data type="int"/>
@@ -296,6 +288,72 @@
             </interleave>
           </element>
         </zeroOrMore>
+        <optional>
+          <element name="dram">
+            <interleave>
+              <optional>
+                <element name="clock">
+                  <data type="string">
+                    <param name="minLength">1</param>
+                  </data>
+                </element>
+              </optional>
+              <optional>
+                <element name="reset">
+                  <data type="string">
+                    <param name="minLength">1</param>
+                  </data>
+                </element>
+              </optional>
+              <optional>
+                <element name="nameprefix">
+                  <data type="string">
+                    <param name="minLength">1</param>
+                  </data>
+                </element>
+              </optional>
+              <optional>
+                <element name="assignprefix">
+                  <data type="string">
+                    <param name="minLength">1</param>
+                  </data>
+                </element>
+              </optional>
+              <optional>
+                <element name="vlen">
+                  <data type="int"/>
+                </element>
+              </optional>
+            </interleave>
+          </element>
+        </optional>
+        <optional>
+          <element name="fpgpio">
+            <interleave>
+              <optional>
+                <element name="in_bits">
+                  <data type="hexBinary">
+                    <param name="minLength">1</param>
+                  </data>
+                </element>
+              </optional>
+              <optional>
+                <element name="out_bits">
+                  <data type="hexBinary">
+                    <param name="minLength">1</param>
+                  </data>
+                </element>
+              </optional>
+              <optional>
+                <element name="exclusive_bits">
+                  <data type="hexBinary">
+                    <param name="minLength">1</param>
+                  </data>
+                </element>
+              </optional>
+            </interleave>
+          </element>
+        </optional>
       </interleave>
     </element>
   </optional>

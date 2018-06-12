@@ -127,7 +127,8 @@ def find_default():
     files = []
     search_paths = filter(None, (
         # Installed via PYBOMBS
-        os.environ.get('PYBOMBS_PREFIX') if os.environ.get('PYBOMBS_PREFIX') else None,
+        os.path.join(os.environ.get('PYBOMBS_PREFIX'), 'share', 'uhd', 'rfnoc', 'blocks', '*.xml')
+        if os.environ.get('PYBOMBS_PREFIX') else None,
         # fpga-src path in UHD src
         os.path.join('..', '..', '..', '..', 'uhd', 'host', 'include', 'uhd', 'rfnoc', 'blocks', '*.xml'),
         # usr local install
@@ -184,8 +185,14 @@ def create_block(nocscript, xmlfile):
         block['reset'] = nocscript.find('io/reset').text
     for port in nocscript.findall('io/port'):
         block['ports'][port.find('portname').text] = port.find('netname').text
-    for gpio in nocscript.findall('io/gpio'):
-        block['gpio'][gpio.find('portname').text] = gpio.find('netname').text
+    for fpgpio in nocscript.findall('io/fpgpio'):
+        block['fpgpio'] = {}
+        for elem in fpgpio.findall('*'):
+            block['fpgpio'][elem.tag] = elem.text
+    for dram in nocscript.findall('io/dram'):
+        block['dram'] = {}
+        for elem in dram.findall('*'):
+            block['dram'][elem.tag] = elem.text
     if nocscript.find('io/bus') is not None:
         block['buses'] = [merge_parameters(bus, get_default_bus_parameters()) for bus in nocscript.findall('io/bus')]
     for param in nocscript.findall('parameters/parameter'):
@@ -223,7 +230,7 @@ def parse(xmlfiles):
                 print('[ERROR] Noc script files cannot have the same name:')
                 print('  '+xmlfile)
                 print('  '+nocblocks[nocscript_name]['xmlfile'])
-                raise AssertionError('Cannot have two noc script files with same name:')
+                raise AssertionError('Cannot have two noc script files with same name')
             nocblocks[nocscript_name] = create_block(nocscript, xmlfile)
 
     return nocblocks

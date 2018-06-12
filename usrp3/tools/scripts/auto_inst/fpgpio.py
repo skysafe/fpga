@@ -21,36 +21,36 @@ fgpio_settings = {
         'width': 32,
         'default': {
             'nameprefix': '',
-            'in_bits': 0,
-            'out_bits': 0,
-            'own_bits': 0
+            'in_bits': '0',
+            'out_bits': '0',
+            'own_bits': '0'
         }
     },
     'x310': {
         'width': 32,
         'default': {
             'nameprefix': '',
-            'in_bits': 0,
-            'out_bits': 0,
-            'own_bits': 0
+            'in_bits': '0',
+            'out_bits': '0',
+            'own_bits': '0'
         }
     },
     'e310': {
         'width': 6,
         'default': {
             'nameprefix': '',
-            'in_bits': 0,
-            'out_bits': 0,
-            'own_bits': 0
+            'in_bits': '0',
+            'out_bits': '0',
+            'own_bits': '0'
         }
     },
     'n310': {
         'width': 0,
         'default': {
             'nameprefix': '',
-            'in_bits': 0,
-            'out_bits': 0,
-            'own_bits': 0
+            'in_bits': '0',
+            'out_bits': '0',
+            'own_bits': '0'
         }
     }
 }
@@ -70,18 +70,9 @@ class fpgpio():
             raise AssertionError('{0} does not have any FPGPIO to connect'.format(self.device))
         fgpio_params = fgpio_settings[self.device]['default'].copy()
         fgpio_params.update(noc_block_inst.get_block_parameter('fpgpio'))
-        try:
-            in_bits = int(fgpio_params['in_bits'], 16)
-        except TypeError:
-            in_bits = int(fgpio_params['in_bits'])
-        try:
-            out_bits = int(fgpio_params['out_bits'], 16)
-        except TypeError:
-            out_bits = int(fgpio_params['out_bits'])
-        try:
-            own_bits = int(fgpio_params['own_bits'], 16)
-        except TypeError:
-            own_bits = int(fgpio_params['own_bits'])
+        in_bits = int(fgpio_params['in_bits'], 16)
+        out_bits = int(fgpio_params['out_bits'], 16)
+        own_bits = int(fgpio_params['own_bits'], 16)
         # Check if output bits are already acquired
         overlap = out_bits & self.fpgpio_in_use
         if overlap == 0:
