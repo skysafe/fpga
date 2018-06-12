@@ -1,3 +1,4 @@
+  localparam FP_GPIO_FORCE_FAB_CTRL = 0;
   localparam NUM_CE = 11;  // Must be no more than 11 (5 ports taken by transport and IO connected CEs)
 
   wire [NUM_CE*64-1:0] ce_flat_o_tdata, ce_flat_i_tdata;
