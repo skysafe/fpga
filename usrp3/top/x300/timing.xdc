@@ -64,6 +64,7 @@ create_generated_clock -name ce_clk                   [get_pins -hierarchical -f
 create_generated_clock -name ioport2_clk              [get_pins -hierarchical -filter {NAME =~ "*bus_clk_gen/*/CLKFBOUT"}]
 create_generated_clock -name rio40_clk                [get_pins -hierarchical -filter {NAME =~ "*pcie_clk_gen/*/CLKOUT0"}]
 create_generated_clock -name ioport2_idelay_ref_clk   [get_pins -hierarchical -filter {NAME =~ "*pcie_clk_gen/*/CLKOUT1"}]
+create_generated_clock -name ddr3_axi_clk_x2          [get_pins -hierarchical -filter {NAME =~ "*gen_ui_extra_clocks.mmcm_i/CLKOUT0"}]
 
 
 #*******************************************************************************
@@ -77,6 +78,8 @@ set_clock_groups -asynchronous -group [get_clocks ioport2_clk]  -group [get_cloc
 set_clock_groups -asynchronous -group [get_clocks bus_clk]      -group [get_clocks FPGA_REFCLK]
 set_clock_groups -asynchronous -group [get_clocks ce_clk]       -group [get_clocks bus_clk]
 set_clock_groups -asynchronous -group [get_clocks ce_clk]       -group [get_clocks radio_clk]
+set_clock_groups -asynchronous -group [get_clocks ce_clk]       -group [get_clocks ddr3_axi_clk_x2]
+set_clock_groups -asynchronous -group [get_clocks radio_clk]    -group [get_clocks ddr3_axi_clk_x2]
 
 
 #*******************************************************************************
