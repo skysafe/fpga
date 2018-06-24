@@ -98,8 +98,8 @@ def format_wire_string(ports_dict):
 class ports(object):
     def __init__(self, **kwargs):
         self.ports = {}
-        if 'ports' in kwargs:
-            self.set_ports(kwargs['ports'])
+        if 'port' in kwargs:
+            self.set_ports(kwargs['port'])
 
     def set_port(self, name, assign, width, select=None):
         port = {name: {}}
@@ -114,8 +114,11 @@ class ports(object):
         self.ports.update(port)
 
     def set_ports(self, ports):
-        for (key, values) in ports.items():
-            self.set_port(key, **values)
+        if isinstance(ports, list) or isinstance(ports, tuple):
+            for port in ports:
+                self.set_port(**port)
+        else:
+            self.set_set_port(**ports)
 
     def get_port(self, name):
         """
@@ -163,20 +166,19 @@ class ports(object):
 class parameters(ports):
     def __init__(self, **kwargs):
         super(parameters, self).__init__(**kwargs)
-        if 'parameters' in kwargs:
-            self.set_parameters(kwargs['parameters'])
+        if 'parameter' in kwargs:
+            self.set_parameters(kwargs['parameter'])
 
-    def set_parameter(self, name, assign):
+    def set_parameter(self, name, value):
         # Dont care about width for parameters
-        self.set_port(name, assign, None)
+        self.set_port(name, value, None)
 
     def set_parameters(self, parameters):
-        params = {}
-        for (name, assign) in parameters.items():
-            params[name] = {}
-            params[name]['assign'] = assign
-            params[name]['width'] = None
-        self.set_ports(params)
+        if isinstance(parameters, list) or isinstance(parameters, tuple):
+            for parameter in parameters:
+                self.set_parameter(**parameter)
+        else:
+            self.set_parameter(**parameters)
 
     def get_parameter(self, name):
         return self.get_port(name)

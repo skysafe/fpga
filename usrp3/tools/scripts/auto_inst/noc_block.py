@@ -38,6 +38,7 @@ class noc_block():
                 block_parameters['blockname'], block_parameters['xmlfile']))
         self.block_number = len(noc_blocks_list)
         self.block_parameters = block_parameters
+        self.io_parameters = block_parameters.get('io', {})
         # Add default CHDR bus and any ports / buses / parameters specified in block parameters
         # Note: CHDR bus is handled separately (instead of being in self.buses) due to special naming
         chdr_bus = {
@@ -47,21 +48,21 @@ class noc_block():
             'assign_prefix': 'ce_',
             'assign_postfix': '[{0}]'.format(self.block_number),
             'width': 64,
-            'clock': block_parameters.get('clock', 'ce_clk'),
-            'reset': block_parameters.get('reset', 'ce_rst'),
-            'busclock': block_parameters.get('busclock', 'bus_clk'),
-            'busreset': block_parameters.get('busclock', 'bus_rst'),
+            'clock': self.io_parameters.get('clock', 'ce_clk'),
+            'reset': self.io_parameters.get('reset', 'ce_rst'),
+            'bus_clock': self.io_parameters.get('bus_clock', 'bus_clk'),
+            'bus_reset': self.io_parameters.get('bus_clock', 'bus_rst'),
             'master': False
         }
         self.chdr = auto_inst_io.make(chdr_bus['type'], **chdr_bus)
         self.extra_ports = auto_inst_io.make('ports')
-        if 'ports' in block_parameters:
-            self.set_ports(block_parameters['ports'])
+        if 'port' in self.io_parameters:
+            self.set_ports(self.io_parameters['port'])
         self.parameters = auto_inst_io.make('parameters')
-        if 'parameters' in block_parameters:
-            self.set_parameters(block_parameters['parameters'])
+        if 'parameter' in self.io_parameters:
+            self.set_parameters(self.io_parameters['parameter'])
         self.buses = []
-        if 'buses' in block_parameters:
+        if 'bus' in self.io_parameters:
             for bus in block_parameters['buses']:
                 self.add_bus(bus)
 
@@ -81,7 +82,20 @@ class noc_block():
         self.buses.append(bus)
 
     def get_block_parameter(self, name):
-        return self.block_parameters[name]
+        """
+        Return parameter from block parameters dictionary.
+        For nested parameters, use a list or tuple to specify path.
+        """
+        block_parameter = self.block_parameters
+        if isinstance(name, list) or isinstance(name, tuple):
+            for _name in name:
+                block_parameter = block_parameter[_name]
+            return block_parameter
+        else:
+            return self.block_parameters[name]
+
+    def get_block_parameters(self):
+        return self.block_parameters
 
     def get_parameters(self):
         return self.parameters.get_parameters()

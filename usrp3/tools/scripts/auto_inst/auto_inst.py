@@ -63,8 +63,9 @@ class auto_inst():
         resources, such as dram, call the resource's handler object.
         """
         noc_block_inst = noc_block.noc_block(block_parameters, self.noc_blocks)
-        for key in block_parameters:
-            if key in self.resources:
+        io_parameters = block_parameters.get('io', {})
+        for key in self.resources:
+            if key in io_parameters:
                 self.resources[key].connect(noc_block_inst)
         self.noc_blocks.append(noc_block_inst)
 

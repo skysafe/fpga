@@ -168,7 +168,7 @@ class dram():
             )
             print "[DRAM][ERROR] " + error_str
             raise AssertionError(error_str)
-        nocscript_params = noc_block_inst.get_block_parameter('dram').copy()
+        nocscript_params = noc_block_inst.get_block_parameter(('io', 'dram')).copy()
         vlen = int(nocscript_params.get('vlen', 1))
         nocscript_params['vlen'] = 1
         for i in range(vlen):
