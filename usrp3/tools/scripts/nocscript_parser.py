@@ -24,62 +24,9 @@ import lxml.objectify
 NOCSCRIPT_RELAXNG_SCHEMA = os.path.join(os.path.dirname(os.path.realpath(__file__)), "nocscript.rng")
 
 
-def get_default_block_parameters():
-    default = {
-        "xmlfile"    : '',        # Full path to noc script XML
-        "name"       : '',        # Block full name
-        "blockname"  : '',        # Block name
-        "key"        : '',        # Unique key for block
-        "hdlname"    : '',        # Name of block's HDL module/entity
-        "doc"        : '',        # Documentation
-        "ids"        : [],        # NOC IDs
-        "setregs"    : {},        # Settings bus setting registers
-        "readbacks"  : {},        # Settings bus readback regs
-        "args"       : {},        # Noc script args
-        "sinks"      : {},        # Sink block ports
-        "sources"    : {},        # Source block ports
-        "clock"      : None,      # Net to assign to ce_clk input
-        "reset"      : None,      # Net to assign to ce_rst input
-        "ports"      : {},        # Dict of extra ports to instantiate on block IO
-        "gpio"       : {},        # Dict of blocks's general purpose IO
-        "buses"      : [],        # List of dicts of block's buses
-        "parameters" : {}}        # Dict of block's HDL parameters/generics
-    return default
-
-
-def get_default_arg_parameters():
-    default = {
-        'type'          : '',
-        'value'         : '',
-        'check'         : '',
-        'check_message' : ''
-    }
-    return default
-
-
-def get_default_blockport_parameters():
-    default = {
-        'type'     : '',
-        'port'     : '',
-        'vlen'     : '',
-        'pkt_size' : ''
-    }
-    return default
-
-
-def get_default_bus_parameters():
-    default = {
-        'portprefix' : '',
-        'netprefix'  : '',
-        'type'       : '',
-        'vlen'       : 1
-    }
-    return default
-
-
 def find(include_dir):
     """
-    Returns a list of nocblock xml files
+    Returns a list of noc block xml files
     """
     files = []
     postfix_search_paths = (
@@ -116,13 +63,12 @@ def find(include_dir):
         else:
             for dir in include_dir:
                 print(dir)
-
     return files
 
 
 def find_default():
     """
-    Returns a list of nocblock xml files by looking at predefined paths
+    Returns a list of noc block xml files by looking at predefined paths
     """
     files = []
     search_paths = filter(None, (
@@ -142,75 +88,89 @@ def find_default():
     return files
 
 
-def merge_parameters(elem, d):
+def etree_to_dict(tree):
     """
-    Overwrite dict with parameters from element tree, but
-    only if they exist
-    """
-    d_merge = d
-    for key in d.keys():
-        if elem.find(key) is not None:
-            d_merge[key] = elem.find(key).text
-    return d_merge
+    Walk element tree converting to dictionary. Depending on structure of each
+    element, element will be stored in dictionary as either a string, a list of strings,
+    a dict, or a list of dicts.
 
-
-def create_block(nocscript, xmlfile):
+    Note: In some cases, item should be tested if it is a list or not before accessing
     """
-    Convert nocscript element tree into an easier to use dict
-    Note: It is assumed the element tree has been validated
     """
-    block = get_default_block_parameters()
-    block['xmlfile'] = xmlfile
-    block['name'] = nocscript.find('name').text
-    block['blockname'] = nocscript.find('blockname').text
-    block['hdlname'] = nocscript.find('hdlname').text
-    if nocscript.find('key') is not None:
-        block['key'] = nocscript.find('key').text
-    if nocscript.find('doc') is not None:
-        block['doc'] = nocscript.find('doc').text
-    block['ids'] = [nocid.text for nocid in nocscript.findall('ids/id')]
-    for reg in nocscript.findall('registers/setreg'):
-        block['setregs'][reg.find('name').text] = reg.find('address').text
-    for reg in nocscript.findall('registers/readback'):
-        block['readbacks'][reg.find('name').text] = reg.find('address').text
-    for arg in nocscript.findall('args/arg'):
-        block['args'][arg.find('name').text] = merge_parameters(arg, get_default_arg_parameters())
-    for sink in nocscript.findall('ports/sink'):
-        block['sinks'][sink.find('name').text] = merge_parameters(sink, get_default_blockport_parameters())
-    for src in nocscript.findall('ports/source'):
-        block['sources'][src.find('name').text] = merge_parameters(src, get_default_blockport_parameters())
-    if nocscript.find('io/clock') is not None:
-        block['clock'] = nocscript.find('io/clock').text
-    if nocscript.find('io/reset') is not None:
-        block['reset'] = nocscript.find('io/reset').text
-    for port in nocscript.findall('io/port'):
-        block['ports'][port.find('portname').text] = port.find('netname').text
-    for fpgpio in nocscript.findall('io/fpgpio'):
-        block['fpgpio'] = {}
-        for elem in fpgpio.findall('*'):
-            block['fpgpio'][elem.tag] = elem.text
-    for dram in nocscript.findall('io/dram'):
-        block['dram'] = {}
-        for elem in dram.findall('*'):
-            block['dram'][elem.tag] = elem.text
-    if nocscript.find('io/bus') is not None:
-        block['buses'] = [merge_parameters(bus, get_default_bus_parameters()) for bus in nocscript.findall('io/bus')]
-    for param in nocscript.findall('parameters/parameter'):
-        block['parameters'][param.find('name').text] = param.find('value').text
-    return block
+    String case:
+      <id>...</id>
+      -> {'id': '...'}
+    List of strings case:
+      <id>...</id>
+      <id>...</id>
+      -> {'id': ['...', '...']}
+    Dict case:
+      <arg>
+        <name>...</name>
+        <value>...</value>
+      </arg>
+      -> {'arg': {'name': '...', 'value': '...'}}
+    List of dicts case:
+      <arg>
+        <name>...</name>
+        <value>...</value>
+      </arg>
+      <arg>
+        <name>...</name>
+        <value>...</value>
+      </arg>
+      -> {'arg': [{'name': '...', 'value': '...'}, {'name': '...', 'value': '...'}]}
+    """
+    d = {}
+    tags_set = set([elem.tag for elem in tree.findall('*')])
+    # For each unique element tag
+    for tag in tags_set:
+        elems = tree.findall(tag)
+        # If element has sub-elements, recursively process sub-tree, i.e.:
+        # <args>
+        #   <arg>
+        #   ...
+        #   </arg>
+        # </args>
+        if len([elem for elem in elems if len(elem.findall('*'))]) > 0:
+            # Use list to group multiple elements with same tag, i.e.:
+            # <arg>
+            # ...
+            # </arg>
+            # <arg>
+            # ...
+            # </arg>
+            if len(elems) > 1:
+                l = []
+                for elem in elems:
+                    l.append(etree_to_dict(elem))
+                d[tag] = l
+            else:
+                d[tag] = etree_to_dict(elems[0])
+        # i.e. <name>...</name>
+        else:
+            # Multiple elements with same tag, use a list
+            if len(elems) > 1:
+                l = []
+                for elem in elems:
+                    l.append(elem.text)
+                d[tag] = l
+            else:
+                d[tag] = elems[0].text
+    return d
 
 
 def parse(xmlfiles):
     """
-    Return a list of nocblocks by parsing nocscript xml files.
-    Noc script files are linted for the required subset of fields and
-    that no duplicate noc script files exist.
+    Returns noc block dicts (organized by filename) by parsing
+    nocscript xml files.
+    Nocscript files are validated for the required elements using RelaxNG and
+    that no duplicate nocscript files exist.
     """
-
     with open(NOCSCRIPT_RELAXNG_SCHEMA, 'r') as f:
         relaxng = lxml.etree.RelaxNG(file=f)
 
-    nocblocks = {}
+    noc_block_dicts = {}
     for xmlfile in xmlfiles:
         with open(xmlfile, 'r') as f:
             nocscript = lxml.objectify.fromstring(f.read())
@@ -224,13 +184,16 @@ def parse(xmlfiles):
                 for line in error_log:
                     line_split = re.split(':', line)
                     print('  line {0}: {1}'.format(line_split[1], line_split[6]))
-                raise AssertionError("Invalid noc script")
+                raise AssertionError("Invalid nocscript")
             nocscript_name = os.path.splitext(os.path.basename(xmlfile))[0]
-            if nocscript_name in nocblocks:
-                print('[ERROR] Noc script files cannot have the same name:')
+            noc_block_dict = etree_to_dict(nocscript)
+            noc_block_dict['xmlfile'] = xmlfile
+            noc_block_dict['block'] = nocscript_name
+            if nocscript_name in noc_block_dicts and noc_block_dict != noc_block_dicts[nocscript_name]:
+                print('[ERROR] Nocscript files cannot have the same name and different content:')
                 print('  '+xmlfile)
-                print('  '+nocblocks[nocscript_name]['xmlfile'])
-                raise AssertionError('Cannot have two noc script files with same name')
-            nocblocks[nocscript_name] = create_block(nocscript, xmlfile)
-
-    return nocblocks
+                print('  '+noc_block_dicts[nocscript_name]['xmlfile'])
+                raise AssertionError('Cannot have multiple nocscript files with same name and different content')
+            else:
+                noc_block_dicts[nocscript_name] = noc_block_dict
+    return noc_block_dicts
