@@ -181,25 +181,6 @@ def file_generator(args, vfile):
         open(args.outfile, 'w').write(vfile)
 
 
-def append_re_line_sequence(filename, linepattern, newline):
-    """ Detects the re 'linepattern' in the file. After its last occurrence,
-    paste 'newline'. If the pattern does not exist, append the new line
-    to the file. Then, write. If the newline already exists, leaves the file
-    unchanged"""
-    oldfile = open(filename, 'r').read()
-    lines = re.findall(newline, oldfile, flags=re.MULTILINE)
-    if len(lines) != 0:
-        pass
-    else:
-        pattern_lines = re.findall(linepattern, oldfile, flags=re.MULTILINE)
-        if len(pattern_lines) == 0:
-            open(filename, 'a').write(newline)
-            return
-        last_line = pattern_lines[-1]
-        newfile = oldfile.replace(last_line, last_line + newline + '\n')
-        open(filename, 'w').write(newfile)
-
-
 def create_oot_include(device, include_dirs):
     """
     Create the include file for OOT RFNoC sources
@@ -243,9 +224,6 @@ def create_oot_include(device, include_dirs):
 
 def append_item_into_file(device, include_dir):
     """
-    Basically the same as append_re_line_sequence function, but it does not
-    append anything when the input is not found
-    ---
     Detects the re 'linepattern' in the file. After its last occurrence,
     pastes the input string. If pattern doesn't exist
     notifies and leaves the file unchanged
@@ -281,24 +259,6 @@ def append_item_into_file(device, include_dir):
                 srcs = "".join(notin)
             newfile = oldfile.replace(last_line, last_line + srcs)
             open(dest_srcs_file, 'w').write(newfile)
-
-
-def compare(file1, file2):
-    """
-    compares two files line by line, and returns the lines of first file that
-    were not found on the second. The returned is a tuple item that can be
-    accessed in the form of a list as tuple[0], where each line takes a
-    position on the list or in a string as tuple [1].
-    """
-    notinside = []
-    with open(file1, 'r') as arg1:
-        with open(file2, 'r') as arg2:
-            text1 = arg1.readlines()
-            text2 = arg2.readlines()
-            for item in text1:
-                if item not in text2:
-                    notinside.append(item)
-    return notinside
 
 
 def readfile(files):
