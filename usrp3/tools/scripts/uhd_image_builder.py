@@ -423,38 +423,29 @@ def print_available_blocks(nocblocks):
 
 def create_blocklist(requested_blocks, available_blocks):
     """
-    Create a list of block for instantiation from requested_blocks
-    by checking against available_blocks loaded from noc script.
-    The purpose is to use available_blocks to validate and fill
-    in any missing parameters and io defined by blocks in
-    requested_blocks. Block parameters in requested_blocks override
-    the matching parameters in available_blocks.
+    Create a list of blocks for instantiation from list of block names
+    (requested_blocks) by checking against available_blocks loaded from noc script.
     """
     blocklist = []
     # Validate each requested block against the 'definition' block in available_blocks
-    for req_block in requested_blocks:
+    for blockname in requested_blocks:
         # Block noc script filenames are unique, so requested block should match an available block
-        if not req_block['block'] in available_blocks.keys():
-            print('[ERROR] Requested block '+req_block['block']+' missing corresponding noc script')
+        if blockname not in available_blocks.keys():
+            print('[ERROR] Requested block '+blockname+' missing corresponding nocscript')
             print_available_blocks(available_blocks)
             exit(1)
-        block = available_blocks[req_block['block']]
-        # Merge parameters, give req_block precedence
-        block['block'] = req_block['block']
-        for param in req_block['parameters']:
-            block[param.key()] = req_block[param.key()]
-        for port in req_block['ports']:
-            block[port.key()] = req_block[port.key()]
-        blocklist.append(block)
-
+        blocklist.append(available_blocks[blockname])
     return blocklist
 
 
 def main():
     " Go, go, go! "
     args = setup_parser().parse_args()
-    # Load noc script
-    oot_nocscript_files = nocscript_parser.find(args.oot_include_dir)
+    # Load nocscript
+    if args.oot_include_dir is not None:
+        oot_nocscript_files = nocscript_parser.find(args.oot_include_dir)
+    else:
+        oot_nocscript_files = []
     if (args.uhd_include_dir is not None):
         uhd_nocscript_files = nocscript_parser.find(args.uhd_include_dir)
     else:
@@ -462,36 +453,26 @@ def main():
     if len(oot_nocscript_files) == 0 and len(uhd_nocscript_files) == 0:
         print("[ERROR] No nocscript xml files found")
         exit(1)
-    # Parse noc script
-    nocscript_files = oot_nocscript_files + uhd_nocscript_files
-    available_blocks = nocscript_parser.parse(nocscript_files)
-    # Only validate noc script
+    available_blocks = nocscript_parser.parse(oot_nocscript_files + uhd_nocscript_files)
+    # Only validate nocscript
     if args.validate:
-        print("No noc script errors found")
+        print("No nocscript errors found")
         return
     # Only list available blocks
     if args.list:
         print_available_blocks(available_blocks)
         return
-    # Requested blocks either from yml file or args
-    if args.yml:
-        print("Using yml file. Ignoring command line blocks arguments")
-        requested_blocks = parse_yml(args.yml)
-    else:
-        requested_blocks = []
-        for blockname in args.blocks:
-            block = nocscript_parser.get_default_block_parameters()
-            block["block"] = blockname
-            requested_blocks.append(block)
+    # Requested blocks from args
+    requested_blocks = []
+    for blockname in args.blocks:
+        requested_blocks.append(blockname)
     if (len(requested_blocks) > args.max_num_blocks):
         print("[ERROR] Requested {0} blocks, but specified max of {1} blocks".format(
             len(requested_blocks), args.max_num_blocks))
     # If space left for extra blocks, fill with FIFOs
     if args.fill_with_fifos:
         for _ in range(len(requested_blocks), args.max_num_blocks):
-            block = nocscript_parser.get_default_block_parameters()
-            block["block"] = "fifo"
-            requested_blocks.append(block)
+            requested_blocks.append("fifo")
     blocklist = create_blocklist(requested_blocks, available_blocks)
     vfile = create_vfiles(blocklist, args.device)
     file_generator(args, vfile)

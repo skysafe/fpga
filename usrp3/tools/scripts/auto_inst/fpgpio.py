@@ -23,7 +23,7 @@ fgpio_settings = {
             'nameprefix': '',
             'in_bits': '0',
             'out_bits': '0',
-            'own_bits': '0'
+            'exclusive_bits': '0'
         }
     },
     'x310': {
@@ -32,7 +32,7 @@ fgpio_settings = {
             'nameprefix': '',
             'in_bits': '0',
             'out_bits': '0',
-            'own_bits': '0'
+            'exclusive_bits': '0'
         }
     },
     'e310': {
@@ -41,7 +41,7 @@ fgpio_settings = {
             'nameprefix': '',
             'in_bits': '0',
             'out_bits': '0',
-            'own_bits': '0'
+            'exclusive_bits': '0'
         }
     },
     'n310': {
@@ -50,7 +50,7 @@ fgpio_settings = {
             'nameprefix': '',
             'in_bits': '0',
             'out_bits': '0',
-            'own_bits': '0'
+            'exclusive_bits': '0'
         }
     }
 }
@@ -60,7 +60,7 @@ class fpgpio():
     def __init__(self, device):
         self.device = device
         self.fpgpio_in_use = 0
-        self.own_bits = 0
+        self.exclusive_bits = 0
         self.assigns_in = []
         self.assigns_out = []
 
@@ -69,10 +69,10 @@ class fpgpio():
         if width == 0:
             raise AssertionError('{0} does not have any FPGPIO to connect'.format(self.device))
         fgpio_params = fgpio_settings[self.device]['default'].copy()
-        fgpio_params.update(noc_block_inst.get_block_parameter('fpgpio'))
+        fgpio_params.update(noc_block_inst.get_block_parameter(('io', 'fpgpio')))
         in_bits = int(fgpio_params['in_bits'], 16)
         out_bits = int(fgpio_params['out_bits'], 16)
-        own_bits = int(fgpio_params['own_bits'], 16)
+        exclusive_bits = int(fgpio_params['exclusive_bits'], 16)
         # Check if output bits are already acquired
         overlap = out_bits & self.fpgpio_in_use
         if overlap == 0:
@@ -81,12 +81,12 @@ class fpgpio():
             overlap_list = [2**i for i in range(width) if overlap >> i & 1]
             raise AssertionError('FPGPIO bits: {0} have multiple drivers'.format(overlap_list))
         # Check if attempting to own FPGPIOs that are not in out_bits
-        greedy = ~out_bits & own_bits
+        greedy = ~out_bits & exclusive_bits
         if greedy:
             greedy_list = [2**i for i in range(width) if greedy >> i & 1]
             raise AssertionError('Attempting to own FPGPIO bits: {0} without driving them'.format(greedy_list))
         else:
-            self.own_bits |= own_bits
+            self.exclusive_bits |= exclusive_bits
         # Create fp_gpio_in port on noc block
         if in_bits > 0:
             in_bits_list = [i for i in range(width) if in_bits >> i & 1]
@@ -103,7 +103,7 @@ class fpgpio():
             self.assigns_out.append((fp_gpio_out_assign, out_bits_list))
 
     def get_declaration_string(self):
-        vstr = "localparam FP_GPIO_FORCE_FAB_CTRL = {0};\n".format(self.own_bits)
+        vstr = "localparam FP_GPIO_FORCE_FAB_CTRL = {0};\n".format(self.exclusive_bits)
         return vstr
 
     def get_module_string(self):
