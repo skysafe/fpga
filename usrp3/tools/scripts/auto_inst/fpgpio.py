@@ -1,5 +1,17 @@
 #!/usr/bin/env python
 """
+FPGPIO resource class for handling noc blocks that want front panel
+general purpose IO access. Uses fabric access port on gpio_atr.
+Applicable noc script tags:
+<io>
+    <fpgpio>
+            <name_prefix>       Prefix for port name
+            <in_bits>           Hexadecimal bit mask of input fpgpio to map to noc block
+            <out_bits>          Hexadecimal bit mask of output fpgpio to map to noc block
+            <exclusive_bits>    Hexadecimal bit mask of output fpgpio CE will exclusively
+                                control (versus sharing with radio core)
+"""
+"""
 Copyright 2018 SkySafe Inc.
 
 This program is free software: you can redistribute it and/or modify
@@ -16,11 +28,17 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-fgpio_settings = {
+import basic_types
+
+
+# Parameters for FPGPIO on a per device basis
+fgpio_params = {
     'x300': {
+        # Number of FPGPIO
         'width': 32,
+        # Default arguments that can be overriden by user
         'default': {
-            'nameprefix': '',
+            'name_prefix': '',
             'in_bits': '0',
             'out_bits': '0',
             'exclusive_bits': '0'
@@ -29,7 +47,7 @@ fgpio_settings = {
     'x310': {
         'width': 32,
         'default': {
-            'nameprefix': '',
+            'name_prefix': '',
             'in_bits': '0',
             'out_bits': '0',
             'exclusive_bits': '0'
@@ -38,16 +56,16 @@ fgpio_settings = {
     'e310': {
         'width': 6,
         'default': {
-            'nameprefix': '',
+            'name_prefix': '',
             'in_bits': '0',
             'out_bits': '0',
             'exclusive_bits': '0'
         }
     },
     'n310': {
-        'width': 0,
+        'width': 32,
         'default': {
-            'nameprefix': '',
+            'name_prefix': '',
             'in_bits': '0',
             'out_bits': '0',
             'exclusive_bits': '0'
@@ -61,64 +79,71 @@ class fpgpio():
         self.device = device
         self.fpgpio_in_use = 0
         self.exclusive_bits = 0
-        self.assigns_in = []
-        self.assigns_out = []
 
     def connect(self, noc_block_inst):
-        width = int(fgpio_settings[self.device]['width'])
+        """
+        Connect a noc block to FPGPIO. Adds the fpgpio ports to the noc block.
+        """
+        width = int(fgpio_params[self.device]['width'])
+        noc_block_name = noc_block_inst.get_block_arg('block')
+        # Tried to use FPGPIO with a device that does not have any
         if width == 0:
-            raise AssertionError('{0} does not have any FPGPIO to connect'.format(self.device))
-        fgpio_params = fgpio_settings[self.device]['default'].copy()
-        fgpio_params.update(noc_block_inst.get_block_parameter(('io', 'fpgpio')))
-        in_bits = int(fgpio_params['in_bits'], 16)
-        out_bits = int(fgpio_params['out_bits'], 16)
-        exclusive_bits = int(fgpio_params['exclusive_bits'], 16)
+            self.print_error('{0} does not have any FPGPIO to connect'.format(self.device))
+        # Merge default arguments and user arguments
+        fgpio_args = fgpio_params[self.device]['default'].copy()
+        fgpio_args.update(noc_block_inst.get_block_arg(('io', 'fpgpio')))
+        # Expect hexadecimal bit masks
+        in_bits = int(fgpio_args['in_bits'], 16)
+        out_bits = int(fgpio_args['out_bits'], 16)
+        exclusive_bits = int(fgpio_args['exclusive_bits'], 16)
+        # Cannot use more FPGPIO than device supports
+        if 2**width <= in_bits:
+            self.print_error('noc block {0} requested more input FPGPIOs than USRP {1} supports'.format(
+                noc_block_name, self.device))
+        if 2**width <= out_bits:
+            self.print_error('noc block {0} requested more output FPGPIOs than USRP {1} supports'.format(
+                noc_block_name, self.device))
         # Check if output bits are already acquired
         overlap = out_bits & self.fpgpio_in_use
         if overlap == 0:
             self.fpgpio_in_use |= out_bits
         else:
             overlap_list = [2**i for i in range(width) if overlap >> i & 1]
-            raise AssertionError('FPGPIO bits: {0} have multiple drivers'.format(overlap_list))
+            self.print_error('FPGPIO bits: {0} have multiple drivers'.format(overlap_list))
         # Check if attempting to own FPGPIOs that are not in out_bits
         greedy = ~out_bits & exclusive_bits
         if greedy:
             greedy_list = [2**i for i in range(width) if greedy >> i & 1]
-            raise AssertionError('Attempting to own FPGPIO bits: {0} without driving them'.format(greedy_list))
+            self.print_error('noc block {0} attempted to exclusively own FPGPIO bits: {1} without driving them'.format(
+                noc_block_name, greedy_list))
         else:
             self.exclusive_bits |= exclusive_bits
-        # Create fp_gpio_in port on noc block
+        # Create FPGPIO input / output ports on noc block and assign FPGPIO bits
+        # e.g. .fp_gpio_in(fp_gpio_rb[0], fp_gpio_rb[1], ...),
+        # NOTE: It is assumed the fp_gpio_rb and fp_gpio_fab wires are already declared.
         if in_bits > 0:
             in_bits_list = [i for i in range(width) if in_bits >> i & 1]
-            fp_gpio_in_assign = 'fp_gpio_rb_{0}'.format(len(self.assigns_in))
-            noc_block_inst.set_port(fgpio_params['nameprefix']+'fp_gpio_in',
-                fp_gpio_in_assign, len(in_bits_list))
-            self.assigns_in.append((fp_gpio_in_assign, in_bits_list))
-        # Create fp_gpio_out port on noc block
+            in_assign_list = []
+            for bit in in_bits_list:
+                in_assign_list.append('fp_gpio_rb[{0}]'.format(bit))
+            noc_block_inst.append_port_assign(fgpio_args['name_prefix']+'fp_gpio_in', in_assign_list)
         if out_bits > 0:
             out_bits_list = [i for i in range(width) if out_bits >> i & 1]
-            fp_gpio_out_assign = 'fp_gpio_fab_{0}'.format(len(self.assigns_out))
-            noc_block_inst.set_port(fgpio_params['nameprefix']+'fp_gpio_out',
-                fp_gpio_out_assign, len(out_bits_list))
-            self.assigns_out.append((fp_gpio_out_assign, out_bits_list))
+            out_assign_list = []
+            for bit in out_bits_list:
+                out_assign_list.append('fp_gpio_fab[{0}]'.format(bit))
+            noc_block_inst.append_port_assign(fgpio_args['name_prefix']+'fp_gpio_out', out_assign_list)
 
-    def get_declaration_string(self):
-        vstr = "localparam FP_GPIO_FORCE_FAB_CTRL = {0};\n".format(self.exclusive_bits)
-        return vstr
+    def print_error(self, string):
+        print '[FPGPIO][ERROR] ' + string
+        raise AssertionError(string)
 
-    def get_module_string(self):
-        vstr = "\n"
-        vstr += "/////////////////////////////////////\n"
-        vstr += "// FPGPIO assignments\n"
-        vstr += "/////////////////////////////////////\n"
-        for (assign, bits_list) in self.assigns_in:
-            fp_gpio_rb_list = []
-            for bit in bits_list:
-                fp_gpio_rb_list.append("fp_gpio_rb[{0}]".format(bit))
-            vstr += "assign {0} = {{{1}}};\n".format(assign, ",".join(fp_gpio_rb_list))
-        for (assign, bits_list) in self.assigns_out:
-            i = 0
-            for bit in bits_list:
-                vstr += "assign fp_gpio_fab[{0}] = {1}[{2}];\n".format(bit, assign, i)
-                i += 1
-        return vstr
+    def get_code_dict(self):
+        """
+        Returns a dictionary containing code objects for module, wires, etc
+        Every resource class must have this method.
+        """
+        d = {}
+        d['localparams'] = basic_types.localparam(
+            {'name': 'FP_GPIO_FORCE_FAB_CTRL', 'assign': "{0}".format(self.exclusive_bits)})
+        return d
