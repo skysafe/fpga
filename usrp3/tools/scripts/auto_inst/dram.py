@@ -1,5 +1,17 @@
 #!/usr/bin/env python
 """
+DRAM resource class for handling noc blocks that want DRAM access.
+Instantiates an AXI interconnect and handles connections its AXI ports.
+Applicable noc script tags:
+<io>
+    <dram>
+        <name_prefix>       Prefix for noc block AXI ports
+        <vlen>              Number of AXI buses / DRAM ports requested
+                            Can also set to a parameter in the <parameter>
+                            section, whose value will be used instead.
+NOTE: All tags are optional.
+"""
+"""
 Copyright 2018 SkySafe Inc.
 
 This program is free software: you can redistribute it and/or modify
@@ -16,35 +28,42 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import auto_inst_io
+import basic_types
+import buses
+import copy
 
 
+# Parameters for axi_interconnect on a per device basis
 intercon_params = {
     'x300': {
         'name': 'axi_intercon_2x64_128_bd_wrapper',
         'max_ports': 2,
+        # Interconnect master AXI bus to MIG
         'master': {
             'type': 'axi',
-            'name_prefix': 'M00_AXI_',
-            'assign_prefix': 'ddr3_axi_',
+            'name_prefix': 'M00_AXI',
+            'assign_prefix': 'ddr3_axi',
             'width': 128,
             'addr_width': 32,
             'clock': 'ddr3_axi_clk',
             'reset': '~ddr3_axi_rst'
         },
+        # Arguments for interconnect slave AXI buses to RFNoC blocks
         'slave': {
             'type': 'axi',
-            'name_prefix': 'S{0:02d}_AXI_',
-            'assign_prefix': 's{0:02d}_axi_',
+            'name_prefix': 'S{0:02d}_AXI',
+            'assign_prefix': 's{0:02d}_axi',
             'width': 64,
             'addr_width': 32,
             'vlen': 1,
             'clock': 'ddr3_axi_clk_x2',
             'reset': '~ddr3_axi_rst'
         },
+        # Default arguments for RFNoC block AXI bus. Just a template that will
+        # be merged with user provided arguments.
         'noc_block': {
             'type': 'axi',
-            'name_prefix': 'm_axi_',
+            'name_prefix': 'm_axi',
             'width': 64,
             'addr_width': 32,
             'vlen': 1
@@ -55,8 +74,8 @@ intercon_params = {
         'max_ports': 2,
         'master': {
             'type': 'axi',
-            'name_prefix': 'M00_AXI_',
-            'assign_prefix': 'ddr3_axi_',
+            'name_prefix': 'M00_AXI',
+            'assign_prefix': 'ddr3_axi',
             'width': 128,
             'addr_width': 32,
             'clock': 'ddr3_axi_clk',
@@ -64,20 +83,18 @@ intercon_params = {
         },
         'slave': {
             'type': 'axi',
-            'name_prefix': 'S{0:02d}_AXI_',
-            'assign_prefix': 's{0:02d}_axi_',
+            'name_prefix': 'S{0:02d}_AXI',
+            'assign_prefix': 's{0:02d}_axi',
             'width': 64,
             'addr_width': 32,
-            'vlen': 1,
             'clock': 'ddr3_axi_clk_x2',
             'reset': '~ddr3_axi_rst'
         },
         'noc_block': {
             'type': 'axi',
-            'name_prefix': 'm_axi_',
+            'name_prefix': 'm_axi',
             'width': 64,
-            'addr_width': 32,
-            'vlen': 1
+            'addr_width': 32
         }
     },
     # TODO: Add E310 support, for now max_ports set to 0
@@ -86,8 +103,8 @@ intercon_params = {
         'max_ports': 0,
         'master': {
             'type': 'axi',
-            'name_prefix': 'M00_AXI_',
-            'assign_prefix': 'ddr3_axi_',
+            'name_prefix': 'M00_AXI',
+            'assign_prefix': 'ddr3_axi',
             'width': 128,
             'addr_width': 32,
             'clock': 'ddr3_axi_clk',
@@ -95,20 +112,18 @@ intercon_params = {
         },
         'slave': {
             'type': 'axi',
-            'name_prefix': 'S{0:02d}_AXI_',
-            'assign_prefix': 's{0:02d}_axi_',
+            'name_prefix': 'S{0:02d}_AXI',
+            'assign_prefix': 's{0:02d}_axi',
             'width': 64,
             'addr_width': 32,
-            'vlen': 1,
             'clock': 'ddr3_axi_clk_x2',
             'reset': '~ddr3_axi_rst'
         },
         'noc_block': {
             'type': 'axi',
-            'name_prefix': 'm_axi_',
+            'name_prefix': 'm_axi',
             'width': 64,
-            'addr_width': 32,
-            'vlen': 1
+            'addr_width': 32
         }
     },
     'n310': {
@@ -116,8 +131,8 @@ intercon_params = {
         'max_ports': 4,
         'master': {
             'type': 'axi',
-            'name_prefix': 'M00_AXI_',
-            'assign_prefix': 'ddr3_axi_',
+            'name_prefix': 'M00_AXI',
+            'assign_prefix': 'ddr3_axi',
             'width': 256,
             'addr_width': 32,
             'clock': 'ddr3_axi_clk',
@@ -125,119 +140,111 @@ intercon_params = {
         },
         'slave': {
             'type': 'axi',
-            'name_prefix': 'S{0:02d}_AXI_',
-            'assign_prefix': 's{0:02d}_axi_',
+            'name_prefix': 'S{0:02d}_AXI',
+            'assign_prefix': 's{0:02d}_axi',
             'width': 64,
             'addr_width': 32,
-            'vlen': 1,
             'clock': 'ddr3_axi_clk_x2',
             'reset': '~ddr3_axi_rst'
         },
         'noc_block': {
             'type': 'axi',
-            'name_prefix': 'm_axi_',
+            'name_prefix': 'm_axi',
             'width': 64,
-            'addr_width': 32,
-            'vlen': 1
+            'addr_width': 32
         }
     },
 }
-
-DRAM_TMPL = """
-{name} inst_{name} ({ports});
-"""
 
 
 class dram():
     def __init__(self, device):
         self.device = device
         self.ports_in_use = 0
-        # Intialize master bus
-        master_bus_params = intercon_params[device]['master']
-        self.master_bus = auto_inst_io.make(master_bus_params['type'], **master_bus_params)
-        self.slave_bus = []
+        self.max_ports = intercon_params[self.device]['max_ports']
+        # Setup interconnect module
+        self.module = basic_types.module(intercon_params[self.device]['name'])
+        # Add master bus, but not any wires because those are ports
+        self.module.add_ports(self.make_uppercase_ports(buses.get_ports(intercon_params[device]['master'])))
+        self.wires = basic_types.wire()
 
     def connect(self, noc_block_inst):
         """
         Connect a noc block to the interconnect. Adds the bus both to
         the dram object and the noc block.
         """
-        if self.ports_in_use > intercon_params[self.device]['max_ports']:
-            error_str = "Too many connections to axi interconnect. Max allowed is {0}".format(
-                intercon_params[self.device]['max_ports']
-            )
-            print "[DRAM][ERROR] " + error_str
-            raise AssertionError(error_str)
-        nocscript_params = noc_block_inst.get_block_parameter(('io', 'dram')).copy()
-        vlen = int(nocscript_params.get('vlen', 1))
-        nocscript_params['vlen'] = 1
+        dram_args = noc_block_inst.get_block_arg(('io', 'dram')).copy()
+        # Grab vlen from nocscript. Resolve string if it is in the parameters section.
+        try:
+            vlen = int(dram_args.get('vlen', 1))
+        except ValueError:
+            vlen_param = dram_args['vlen']
+            vlen = noc_block_inst.get_block_arg(vlen_param)
+            assert vlen is not None, 'Could not resolve parameter {0} for vlen'.format(vlen_param)
+        # Create a separate bus for each DRAM port requested
         for i in range(vlen):
-            dram_bus_params = nocscript_params.copy()
-            dram_bus_params.update(intercon_params[self.device]['slave'])
-            dram_bus_params['name_prefix'] = dram_bus_params['name_prefix'].format(self.ports_in_use)
-            dram_bus_params['assign_prefix'] = dram_bus_params['assign_prefix'].format(self.ports_in_use)
-            noc_block_bus_params = intercon_params[self.device]['noc_block'].copy()
-            noc_block_bus_params.update(nocscript_params)
-            noc_block_bus_params['assign_prefix'] = dram_bus_params['assign_prefix']
-            self.slave_bus.append(auto_inst_io.make(dram_bus_params['type'], **dram_bus_params))
+            if self.ports_in_use > self.max_ports:
+                error_str = "Too many DRAM connections." + \
+                    "Failed on noc block {0} requesting {1} port(s). ".format(
+                        noc_block_inst.get_block_arg['block'], vlen) + \
+                    "Max allowed is {0}".format(self.max_ports)
+                print "[DRAM][ERROR] " + error_str
+                raise AssertionError(error_str)
+            # Add wires and ports to interconnect module for each bus
+            dram_bus_args = intercon_params[self.device]['slave'].copy()
+            dram_bus_args['name_prefix'] = dram_bus_args['name_prefix'].format(self.ports_in_use)
+            dram_bus_args['assign_prefix'] = dram_bus_args['assign_prefix'].format(self.ports_in_use)
+            # NOTE: axi_interconnect generated with uppercase port names, so we need to use
+            #       make_uppercase_ports()
+            self.module.add_ports(self.make_uppercase_ports(buses.get_ports(dram_bus_args)))
+            self.wires.add_items(buses.get_wires(dram_bus_args))
+            # Add ports to noc block. If vlen > 1, port assignments will be concatenated.
+            # Augment default arguments with user specified arguments from nocscript
+            noc_block_bus_args = intercon_params[self.device]['noc_block'].copy()
+            noc_block_bus_args['assign_prefix'] = dram_bus_args['assign_prefix']
             if (i == 0):
-                noc_block_bus = auto_inst_io.make(noc_block_bus_params['type'], **noc_block_bus_params)
+                noc_block_inst.add_ports(buses.get_ports(noc_block_bus_args))
             else:
-                noc_block_bus.append_bus(**noc_block_bus_params)
+                noc_block_inst.append_ports_assign(buses.get_ports(noc_block_bus_args))
             self.ports_in_use += 1
-        noc_block_inst.add_bus(noc_block_bus)
 
-    def get_ports(self):
-        ports = self.master_bus.get_ports()
-        for bus in self.slave_bus:
-            ports.update(bus.get_ports())
+    def make_uppercase_ports(self, ports):
+        """
+        Make ports uppercase
+        """
+        for i in range(len(ports)):
+            ports[i]['name'] = ports[i]['name'].upper()
         return ports
 
-    def get_declaration_string(self):
-        ports = {}
-        for bus in self.slave_bus:
-            ports.update(bus.get_ports())
-        # TODO: Need to be able to mark certain ports to not be declared
-        for name in ports:
-            if intercon_params[self.device]['slave']['clock'] in ports[name]['assign']:
-                ports[name] = None
-            elif intercon_params[self.device]['slave']['reset'] in ports[name]['assign']:
-                ports[name] = None
-        unused_bus_params = []
-        unused_bus = []
-        for i in range(self.ports_in_use, intercon_params[self.device]['max_ports']):
-            unused_bus_params.append(intercon_params[self.device]['slave'].copy())
-            unused_bus_params[i]['name_prefix'] = unused_bus_params[i]['name_prefix'].format(i)
-            unused_bus_params[i]['assign_prefix'] = unused_bus_params[i]['assign_prefix'].format(i)
-            # TODO: Have to set these to None to prevent wires for getting set
-            unused_bus_params[i]['clock'] = None
-            unused_bus_params[i]['reset'] = None
-            unused_bus.append(auto_inst_io.make(unused_bus_params[i]['type'], **unused_bus_params[i]))
-            ports.update(unused_bus[i].get_ports())
-        return auto_inst_io.format_wire_string(ports)
+    def add_unused_ports(self, module):
+        """
+        Setup any unused ports held in reset.
+        """
+        _module = copy.copy(module)
+        for i in range(self.ports_in_use, self.max_ports):
+            unused_bus_args = intercon_params[self.device]['slave'].copy()
+            unused_bus_args['name_prefix'] = unused_bus_args['name_prefix'].format(i)
+            unused_bus_args['assign_prefix'] = unused_bus_args['assign_prefix'].format(i)
+            unused_bus_args['reset'] = "1'b0"  # Active low
+            ports = buses.get_ports(unused_bus_args)
+            # Clear all port assignments
+            for port in ports:
+                ports[port]['assign'] = ''
+            _module.add_ports(ports)
+        return _module
 
-    def get_module_string(self):
-        vstr = "\n"
-        vstr += "/////////////////////////////////////\n"
+    def get_code_dict(self):
+        """
+        Returns a dictionary containing code objects for module, wires, etc
+        Every resource class must have this method.
+        """
+        d = {}
+        vstr = "\n/////////////////////////////////////\n"
         vstr += "// DRAM\n"
-        vstr += "/////////////////////////////////////\n"
-        # TODO: Fix axi_intercon so port names are not capitialized
-        ports = {}
-        for (name, value) in self.get_ports().items():
-            ports[name.upper()] = value
-        # Setup usused ports. Since the ports will not be assigned to anything,
-        # the port should be mostly pruned out. Will generate lots of warnings.
-        # TODO: Get rid of this code by using correctly sized interconnect
-        # depending on number of ports in use.
-        unused_bus_params = []
-        unused_bus = []
-        for i in range(self.ports_in_use, intercon_params[self.device]['max_ports']):
-            unused_bus_params.append(intercon_params[self.device]['slave'].copy())
-            unused_bus_params[i]['name_prefix'] = unused_bus_params[i]['name_prefix'].format(i)
-            unused_bus_params[i]['assign_prefix'] = unused_bus_params[i]['assign_prefix'].format(i)
-            unused_bus.append(auto_inst_io.make(unused_bus_params[i]['type'], **unused_bus_params[i]))
-            ports.update(unused_bus[i].get_ports())
-        vstr = DRAM_TMPL.format(
-            name=intercon_params[self.device]['name'],
-            ports=auto_inst_io.format_port_string(ports))
-        return vstr
+        vstr += "/////////////////////////////////////"
+        d['verilog'] = basic_types.verilog(vstr)
+        # TODO: Instead of adding unused ports, use different module based on
+        #       number of ports in use.
+        d['modules'] = self.add_unused_ports(self.module)
+        d['wires'] = self.wires
+        return d
