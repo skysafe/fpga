@@ -160,7 +160,7 @@ def create_vfiles(blocks, device):
     for block in blocks:
         print("    * {}".format(block['block']))
         auto_inst_gen.add_noc_block(block)
-    vfile = auto_inst_gen.get_verilog_string()
+    vfile = auto_inst_gen.to_verilog()
     return vfile
 
 
