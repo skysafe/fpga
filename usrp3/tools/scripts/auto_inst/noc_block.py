@@ -1,5 +1,38 @@
 #!/usr/bin/env python
 """
+Setup noc block objects from block arguments derived from nocscript.
+Applicable noc script tags:
+<hdlname>           Required. Module name of block without 'noc_block_' prepended
+<io>
+    <clock>         Assignment for ce_clk port
+    <reset>         Assignment for ce_rst port
+    <bus_clock>     Assignment for bus_clk port
+    <bus_reset>     Assignment for bus_rst port
+    <port>          Extra ports for noc block, one tag per port
+        <name>      Name of port
+        <assign>    Port assignment value
+        <declare>   Create wire for port
+        <width>     Width of port, required if declare is true
+    <parameter>     Module parameters, one tag per parameter
+        <name>      Name of parameter
+        <value>     Value
+    <bus>
+        <name_prefix>    Prefix for ports
+        <name_postfix>   Postfix for ports
+        <assign_prefix>  Prefix for port assignments
+        <assign_postfix> Postfix for port assignments
+        <type>           Bus type such as axi, see buses.py
+        <width>          Width
+        <addr_width>     (AXI only) Address width
+        <master>         True or false, if true will setup wires and may signal naming
+        <clock>          Assignment for bus clock, if omitted clock port is omitted
+        <reset>          Assignment for bus port, if omitted reset port is omitted
+        <bus_clock>      (CHDR only) Assignment for bus_clk port
+        <bus_reset>      (CHDR only) Assignment for bus_rst port
+    <verilog>       Raw verilog to include with module instantiation
+NOTE: All tags are optional unless otherwise specified
+"""
+"""
 Copyright 2018 SkySafe Inc.
 
 This program is free software: you can redistribute it and/or modify
@@ -16,113 +49,117 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import auto_inst_io
-
-NOC_BLOCK_TMPL = """
-noc_block_{blockname} #({params})
-noc_block_{blockname}_{inst_number} ({ports},
-  .debug(ce_debug[{block_number}])
-);
-"""
+import buses
+import basic_types
 
 
 class noc_block():
-    def __init__(self, block_parameters, noc_blocks_list):
+    def __init__(self, block_args, noc_blocks_list):
         # Set name based on hdlname and number of instances
-        if 'hdlname' in block_parameters:
-            self.name = block_parameters["hdlname"]
+        if 'hdlname' in block_args:
+            self.name = block_args["hdlname"]
             self.inst_number = len([block for block in noc_blocks_list
-                if block.get_block_parameter('hdlname') == block_parameters['hdlname']])
+                if block.get_block_arg('hdlname') == block_args['hdlname']])
+        # This should have already been caught, but just in case...
         else:
             raise AssertionError("Noc block {0} (file: {1}) did not specify a hdlname!".format(
-                block_parameters['blockname'], block_parameters['xmlfile']))
+                block_args['block'], block_args['xmlfile']))
         self.block_number = len(noc_blocks_list)
-        self.block_parameters = block_parameters
-        self.io_parameters = block_parameters.get('io', {})
-        # Add default CHDR bus and any ports / buses / parameters specified in block parameters
-        # Note: CHDR bus is handled separately (instead of being in self.buses) due to special naming
+        self.block_args = block_args  # Nocscript dict from nocscript parser
+        self.io_args = block_args.get('io', {})  # For convience
+        # Noc block module
+        self.module = basic_types.module("noc_block_"+self.name, instance_number=self.inst_number)
+        # Wires needed for noc block. For majority of noc blocks, this will be empty
+        self.wires = basic_types.wire()
+        # Add default CHDR bus
         chdr_bus = {
             'type': 'chdr',
-            'name_prefix': '',
-            'name_postfix': '',
-            'assign_prefix': 'ce_',
+            'name_prefix': None,
+            'name_postfix': None,
+            # Formatting so AXI bus will look like: ce_i_tdata[0], ce_i_tlast[0], etc...
+            'assign_prefix': 'ce',
             'assign_postfix': '[{0}]'.format(self.block_number),
             'width': 64,
-            'clock': self.io_parameters.get('clock', 'ce_clk'),
-            'reset': self.io_parameters.get('reset', 'ce_rst'),
-            'bus_clock': self.io_parameters.get('bus_clock', 'bus_clk'),
-            'bus_reset': self.io_parameters.get('bus_clock', 'bus_rst'),
+            # User can include 'clock', 'reset', tags in nocscript io section to set these
+            'clock': self.io_args.get('clock', 'ce_clk'),
+            'reset': self.io_args.get('reset', 'ce_rst'),
+            'bus_clock': self.io_args.get('bus_clock', 'bus_clk'),
+            'bus_reset': self.io_args.get('bus_clock', 'bus_rst'),
             'master': False
         }
-        self.chdr = auto_inst_io.make(chdr_bus['type'], **chdr_bus)
-        self.extra_ports = auto_inst_io.make('ports')
-        if 'port' in self.io_parameters:
-            self.set_ports(self.io_parameters['port'])
-        self.parameters = auto_inst_io.make('parameters')
-        if 'parameter' in self.io_parameters:
-            self.set_parameters(self.io_parameters['parameter'])
-        self.buses = []
-        if 'bus' in self.io_parameters:
-            for bus in block_parameters['buses']:
-                self.add_bus(bus)
+        self.add_ports(buses.get_ports(chdr_bus))
+        # Add debug port
+        self.add_port('debug', 'ce_debug[{0}]'.format(self.block_number))
+        # Add user defined ports
+        if 'port' in self.io_args:
+            self.add_ports(self.io_args['port'])
+            for port in self.io_args['port']:
+                if port.get('declare', False):
+                    self.wires.add_item(port['assign'], port['width'])
+        # Add user defined parameters
+        if 'parameter' in self.io_args:
+            self.add_parameters(self.io_args['parameter'])
+        # Add user defined buses
+        if 'bus' in self.io_args:
+            for bus in self.io_args['bus']:
+                self.add_ports(buses.get_ports(bus))
+                if bus.get('master', False):
+                    self.wires.add_items(buses.get_wires(bus))
+        # Add verilog
+        self.verilog = basic_types.verilog(self.block_args.get('verilog', ''))
 
-    def set_port(self, name, assign, width):
-        self.extra_ports.set_port(name, assign, width)
+    def add_port(self, name, assign):
+        self.module.add_port(name, assign)
 
-    def set_ports(self, ports):
-        self.extra_ports.set_ports(ports)
+    def add_ports(self, ports):
+        self.module.add_ports(ports)
 
-    def set_parameter(self, name, assign):
-        self.parameters.set_parameter(name, assign)
+    def append_port_assign(self, name, assign):
+        self.module.append_port_assign(name, assign)
 
-    def set_parameters(self, parameters):
-        self.parameters.set_parameters(parameters)
+    def append_ports_assign(self, assigns):
+        self.module.append_ports_assign(assigns)
 
-    def add_bus(self, bus):
-        self.buses.append(bus)
+    def add_parameter(self, parameter):
+        self.module.add_parameter(**parameter)
 
-    def get_block_parameter(self, name):
+    def add_parameters(self, parameters):
+        self.module.add_parameters(parameters)
+
+    def get_block_arg(self, name):
         """
-        Return parameter from block parameters dictionary.
-        For nested parameters, use a list or tuple to specify path.
+        Return argument from block args dictionary.
+        For nested arguments, use a list or tuple to specify path.
         """
-        block_parameter = self.block_parameters
+        block_arg = self.block_args
         if isinstance(name, list) or isinstance(name, tuple):
             for _name in name:
-                block_parameter = block_parameter[_name]
-            return block_parameter
+                block_arg = block_arg[_name]
+            return block_arg
         else:
-            return self.block_parameters[name]
+            return self.block_args[name]
 
-    def get_block_parameters(self):
-        return self.block_parameters
+    def get_block_args(self):
+        return self.block_args
 
-    def get_parameters(self):
-        return self.parameters.get_parameters()
+    def get_port(self, name):
+        return self.module.get_port(name)
 
     def get_ports(self):
-        ports = self.extra_ports.get_ports()
-        ports.update(self.chdr.get_ports())
-        for bus in self.buses:
-            ports.update(bus.get_ports())
-        return ports
+        return self.module.get_ports()
 
-    def get_declaration_string(self):
-        """
-        """
-        # TODO: chdr ports are skipped because they are declared outside this block,
-        #       but should really be declared here
-        ports = self.extra_ports.get_ports()
-        for bus in self.buses:
-            ports.update(bus.get_ports())
-        return auto_inst_io.format_wire_string(ports)
+    def get_parameter(self, name):
+        return self.module.get_parameter(name)
 
-    def get_module_string(self):
-        vstr = self.block_parameters.get('verilog', '')
-        vstr += NOC_BLOCK_TMPL.format(
-            blockname=self.name,
-            inst_number=self.inst_number,
-            block_number=self.block_number,
-            params=auto_inst_io.format_port_string(self.get_parameters()),
-            ports=auto_inst_io.format_port_string(self.get_ports()))
-        return vstr
+    def get_parameters(self):
+        return self.module.get_parameters()
+
+    def get_code_dict(self):
+        """
+        Returns a dictionary containing code objects for wires and noc block module
+        """
+        d = {}
+        d['verilog'] = self.verilog
+        d['modules'] = self.module
+        d['wires'] = self.wires
+        return d
