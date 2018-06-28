@@ -2,7 +2,7 @@
 """
 Creates auto instantiation file for RFNoC
 Use add_noc_block() to add noc blocks for instantiation and
-get_verilog_string() for verilog code.
+to_verilog() for verilog code.
 """
 """
 Copyright 2018 SkySafe Inc.
@@ -55,31 +55,66 @@ class auto_inst():
     def __init__(self, device):
         self.device = device
         self.noc_blocks = []
-        self.resources = {"dram": dram.dram(device), "fpgpio": fpgpio.fpgpio(device)}
+        self.resource_dict = {"dram": dram.dram, "fpgpio": fpgpio.fpgpio}
+        self.resource_objs = {}
 
-    def add_noc_block(self, block_parameters):
+    def add_noc_block(self, block_args):
         """
-        Add noc block with provided parameters. If block uses specific device
-        resources, such as dram, call the resource's handler object.
+        Add noc block with provided block arguments, i.e. nocscript dict from
+        nocscript parser. If block uses specific device resources, such as dram,
+        call the resource object.
         """
-        noc_block_inst = noc_block.noc_block(block_parameters, self.noc_blocks)
-        io_parameters = block_parameters.get('io', {})
-        for key in self.resources:
-            if key in io_parameters:
-                self.resources[key].connect(noc_block_inst)
+        noc_block_inst = noc_block.noc_block(block_args, self.noc_blocks)
+        io_args = block_args.get('io', {})
+        for key in io_args:
+            if key in self.resource_dict:
+                # Only make resource object one of the noc blocks use it
+                if key not in self.resource_objs:
+                    self.make_resource(key)
+                self.resource_objs[key].connect(noc_block_inst)
         self.noc_blocks.append(noc_block_inst)
 
-    def get_verilog_string(self):
+    def make_resource(self, resource):
+        """
+        Add resource object by name from resource dict.
+        TODO: Allow resources from OOT modules.
+        """
+        self.resource_objs[resource] = self.resource_dict[resource](self.device)
+
+    def to_verilog(self):
+        """
+        Create verilog code by collecting code dictionaries from noc blocks and
+        resources and calling to_verilog() on each.
+        """
         vstr = VERILOG_HEADER_TMPL.format(num_ce=len(self.noc_blocks))
-        # Wire declarations always before modules
-        # TODO: This does not catch duplicate ports, which should be an error
-        for (name, resource) in self.resources.items():
-            vstr += resource.get_declaration_string()
-        for block in self.noc_blocks:
-            vstr += block.get_declaration_string()
-        # Module declarations
-        for (name, resource) in self.resources.items():
-            vstr += resource.get_module_string()
-        for block in self.noc_blocks:
-            vstr += block.get_module_string()
+        # TODO: Merge code dicts into one so duplicate wires, regs, etc
+        #       can be handled.
+        # Setup localparams, regs, wires, and assigns.
+        # Order is important due to possible dependencies.
+        code_order = ['localparams', 'regs', 'wires', 'assigns']
+        for item in code_order:
+            for (name, resource) in self.resource_objs.items():
+                code_dict = resource.get_code_dict()
+                if item in code_dict:
+                    vstr += code_dict[item].to_verilog()
+            for block in self.noc_blocks:
+                code_dict = block.get_code_dict()
+                if item in code_dict:
+                    vstr += code_dict[item].to_verilog()
+        # Group verilog code with module for better looking output
+        code_order = ['verilog', 'modules']
+        for item in code_order:
+            for (name, resource) in self.resource_objs.items():
+                code_dict = resource.get_code_dict()
+                if item in code_dict:
+                    vstr += code_dict[item].to_verilog()
+        vstr += "\n/////////////////////////////////////\n"
+        vstr += "// RFNoC Blocks\n"
+        vstr += "/////////////////////////////////////"
+        code_order = ['verilog', 'modules']
+        for item in code_order:
+            for block in self.noc_blocks:
+                code_dict = block.get_code_dict()
+                if item in code_dict:
+                    vstr += code_dict[item].to_verilog()
         return vstr
