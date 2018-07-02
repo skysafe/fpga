@@ -189,11 +189,16 @@ def parse(xmlfiles):
             noc_block_dict = etree_to_dict(nocscript)
             noc_block_dict['xmlfile'] = xmlfile
             noc_block_dict['block'] = nocscript_name
-            if nocscript_name in noc_block_dicts and noc_block_dict != noc_block_dicts[nocscript_name]:
-                print('[ERROR] Nocscript files cannot have the same name and different content:')
-                print('  '+xmlfile)
-                print('  '+noc_block_dicts[nocscript_name]['xmlfile'])
-                raise AssertionError('Cannot have multiple nocscript files with same name and different content')
+            # Error on duplicate nocscript files with different contents
+            if nocscript_name in noc_block_dicts:
+                for key in noc_block_dicts[nocscript_name]:
+                    if key != 'xmlfile' and noc_block_dict[key] != noc_block_dicts[nocscript_name][key]:
+                        print('[ERROR] Nocscript files cannot have the same name and different content:')
+                        print('  Tag: {0}'.format(key))
+                        print('  '+xmlfile)
+                        print('  '+noc_block_dicts[nocscript_name]['xmlfile'])
+                        raise AssertionError('Cannot have multiple nocscript files with ' +
+                            'same name and different content')
             else:
                 noc_block_dicts[nocscript_name] = noc_block_dict
     return noc_block_dicts
