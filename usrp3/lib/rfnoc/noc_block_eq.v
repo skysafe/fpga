@@ -80,7 +80,7 @@ module noc_block_eq #(
     .bus_clk(bus_clk), .bus_rst(bus_rst),
     .clk(ce_clk), .reset(ce_rst),
     .clear_tx_seqnum(clear_tx_seqnum),
-    .next_dst(),
+    .next_dst(next_dst_sid),
     .set_stb(), .set_addr(), .set_data(),
     .i_tdata(str_sink_tdata), .i_tlast(str_sink_tlast), .i_tvalid(str_sink_tvalid), .i_tready(str_sink_tready),
     .o_tdata(str_src_tdata), .o_tlast(str_src_tlast), .o_tvalid(str_src_tvalid), .o_tready(str_src_tready),
