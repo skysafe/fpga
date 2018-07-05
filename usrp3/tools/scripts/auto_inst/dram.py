@@ -216,22 +216,18 @@ class dram():
             ports[i]['name'] = ports[i]['name'].upper()
         return ports
 
-    def add_unused_ports(self, module):
+    def add_unused_ports(self):
         """
         Setup any unused ports held in reset.
         """
-        _module = copy.copy(module)
         for i in range(self.ports_in_use, self.max_ports):
             unused_bus_args = intercon_params[self.device]['slave'].copy()
             unused_bus_args['name_prefix'] = unused_bus_args['name_prefix'].format(i)
             unused_bus_args['assign_prefix'] = unused_bus_args['assign_prefix'].format(i)
             unused_bus_args['reset'] = "1'b0"  # Active low
-            ports = buses.get_ports(unused_bus_args)
-            # Clear all port assignments
-            for port in ports:
-                ports[port]['assign'] = ''
-            _module.add_ports(ports)
-        return _module
+            self.module.add_ports(self.make_uppercase_ports(buses.get_ports(unused_bus_args)))
+            self.wires.add_items(buses.get_wires(unused_bus_args))
+            self.ports_in_use += 1
 
     def get_code_dict(self):
         """
@@ -245,6 +241,7 @@ class dram():
         d['verilog'] = basic_types.verilog(vstr)
         # TODO: Instead of adding unused ports, use different module based on
         #       number of ports in use.
-        d['modules'] = self.add_unused_ports(self.module)
+        self.add_unused_ports()
+        d['modules'] = self.module
         d['wires'] = self.wires
         return d
