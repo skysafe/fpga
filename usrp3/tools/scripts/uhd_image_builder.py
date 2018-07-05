@@ -401,6 +401,7 @@ def create_blocklist(requested_blocks, available_blocks):
 def main():
     " Go, go, go! "
     args = setup_parser().parse_args()
+    device = args.device.lower()
     # Load nocscript
     if args.oot_include_dir is not None:
         oot_nocscript_files = nocscript_parser.find(args.oot_include_dir)
@@ -434,9 +435,9 @@ def main():
         for _ in range(len(requested_blocks), args.max_num_blocks):
             requested_blocks.append("fifo")
     blocklist = create_blocklist(requested_blocks, available_blocks)
-    vfile = create_vfiles(blocklist, args.device)
+    vfile = create_vfiles(blocklist, device)
     file_generator(args, vfile)
-    create_oot_include(args.device, args.oot_include_dir)
+    create_oot_include(device, args.oot_include_dir)
     if args.outfile is None:
         return build(args)
     else:
