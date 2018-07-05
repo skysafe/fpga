@@ -64,9 +64,10 @@ class MainWindow(QtWidgets.QWidget):
                                                'rfnoc_ce_auto_inst_' + self.device.lower() +
                                                '.v')
 
-        # List of blocks that are part of our library but that do not take place
-        # on the process this tool provides
-        self.blacklist = ['noc_block_radio_core', 'noc_block_axi_dma_fifo', 'noc_block_pfb']
+        # List of blocks to ignore since they are not supported by uhd_image_builder
+        # NOTE: These can be partial names that matched against the full block name,
+        #       i.e. 'radio' will match 'radio_x300'
+        self.blacklist = ['radio', 'eiscat']
         self.lock = threading.Lock()
         self.init_gui()
 
@@ -76,8 +77,8 @@ class MainWindow(QtWidgets.QWidget):
         """
         # pylint: disable=too-many-statements
 
-        ettus_sources = os.path.join(uhd_image_builder.get_scriptpath(), '..', '..', 'lib',\
-            'rfnoc', 'Makefile.srcs')
+        # Only get default blocks
+        ettus_default_blocks = uhd_image_builder.get_blocks([], find_default=True)
         ##################################################
         # Grid Layout
         ##################################################
@@ -158,7 +159,7 @@ class MainWindow(QtWidgets.QWidget):
         ettus_blocks = QtGui.QStandardItem("Ettus-provided Blocks")
         ettus_blocks.setEnabled(False)
         ettus_blocks.setForeground(Qt.black)
-        self.populate_list(ettus_blocks, ettus_sources)
+        self.populate_list(ettus_blocks, ettus_default_blocks)
         self.oot = QtGui.QStandardItem("OOT Blocks for X300 devices")
         self.oot.setEnabled(False)
         self.oot.setForeground(Qt.black)
@@ -515,23 +516,18 @@ class MainWindow(QtWidgets.QWidget):
         parent.setText('OOT Blocks for {} devices'.format(target.upper()))
         self.refresh_oot_dirs()
 
-    def populate_list(self, parent, files, clear=True):
+    def populate_list(self, parent, blocks, clear=True):
         """
-        Populates the pannels with the blocks that are listed in the Makefile.srcs
-        of our library
+        Populates the pannels with the blocks
         """
         # Clean the list before populating it again
         if (clear):
             parent.removeRows(0, parent.rowCount())
-        suffix = '.v \\\n'
-        with open(files) as fil:
-            blocks = fil.readlines()
-        for element in blocks:
-            if element.endswith(suffix) and 'noc_block' in element:
-                element = element[:-len(suffix)]
-                if element not in self.blacklist:
-                    block = QtGui.QStandardItem(element.partition('noc_block_')[2])
-                    parent.appendRow(block)
+        for name in sorted(blocks):
+            blockname = blocks[name]['block']
+            if not any(b for b in self.blacklist if b in blockname):
+                block = QtGui.QStandardItem(blockname)
+                parent.appendRow(block)
 
     @staticmethod
     def show_not_xml_warning():
@@ -585,8 +581,8 @@ class MainWindow(QtWidgets.QWidget):
         else:
             self.oot_dirs = dir_list
             self.cmd_dict["include"] = '-I {}'.format(' '.join(self.oot_dirs))
-        for (ii, oot) in enumerate(dir_list):
-            self.populate_list(self.oot, os.path.join(oot, 'fpga-src', 'Makefile.srcs'), clear=ii==0)
+        blocks = uhd_image_builder.get_blocks(self.oot_dirs)
+        self.populate_list(self.oot, blocks, True)
 
     def populate_target(self, selected_target):
         """
