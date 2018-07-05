@@ -55,8 +55,7 @@ class auto_inst():
     def __init__(self, device):
         self.device = device
         self.noc_blocks = []
-        self.resource_dict = {"dram": dram.dram, "fpgpio": fpgpio.fpgpio}
-        self.resource_objs = {}
+        self.resource_dict = {"dram": dram.dram(self.device), "fpgpio": fpgpio.fpgpio(self.device)}
 
     def add_noc_block(self, block_args):
         """
@@ -68,18 +67,8 @@ class auto_inst():
         io_args = block_args.get('io', {})
         for key in io_args:
             if key in self.resource_dict:
-                # Only make resource object one of the noc blocks use it
-                if key not in self.resource_objs:
-                    self.make_resource(key)
-                self.resource_objs[key].connect(noc_block_inst)
+                self.resource_dict[key].connect(noc_block_inst)
         self.noc_blocks.append(noc_block_inst)
-
-    def make_resource(self, resource):
-        """
-        Add resource object by name from resource dict.
-        TODO: Allow resources from OOT modules.
-        """
-        self.resource_objs[resource] = self.resource_dict[resource](self.device)
 
     def to_verilog(self):
         """
@@ -93,7 +82,7 @@ class auto_inst():
         # Order is important due to possible dependencies.
         code_order = ['localparams', 'regs', 'wires', 'assigns']
         for item in code_order:
-            for (name, resource) in self.resource_objs.items():
+            for (name, resource) in self.resource_dict.items():
                 code_dict = resource.get_code_dict()
                 if item in code_dict:
                     vstr += code_dict[item].to_verilog()
@@ -104,7 +93,7 @@ class auto_inst():
         # Group verilog code with module for better looking output
         code_order = ['verilog', 'modules']
         for item in code_order:
-            for (name, resource) in self.resource_objs.items():
+            for (name, resource) in self.resource_dict.items():
                 code_dict = resource.get_code_dict()
                 if item in code_dict:
                     vstr += code_dict[item].to_verilog()
