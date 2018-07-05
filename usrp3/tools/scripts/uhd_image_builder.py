@@ -398,23 +398,31 @@ def create_blocklist(requested_blocks, available_blocks):
     return blocklist
 
 
+def get_blocks(include_dirs, find_default=False):
+    """
+    Get dictionary of blocks by parsing nocscript
+    in provided directories.
+    If find_default is True, will also search in
+    default directories for nocscript files.
+    NOTE: Also used by uhd_image_builder_gui
+    """
+    nocscript_files = nocscript_parser.find(include_dirs)
+    if find_default:
+        nocscript_files += nocscript_parser.find_default()
+    if len(nocscript_files) == 0:
+        print("[WARNING] No nocscript xml files found")
+    return nocscript_parser.parse(nocscript_files)
+
+
 def main():
     " Go, go, go! "
     args = setup_parser().parse_args()
     device = args.device.lower()
     # Load nocscript
-    if args.oot_include_dir is not None:
-        oot_nocscript_files = nocscript_parser.find(args.oot_include_dir)
+    if args.uhd_include_dir is None:
+        available_blocks = get_blocks(args.oot_include_dir, find_default=True)
     else:
-        oot_nocscript_files = []
-    if (args.uhd_include_dir is not None):
-        uhd_nocscript_files = nocscript_parser.find(args.uhd_include_dir)
-    else:
-        uhd_nocscript_files = nocscript_parser.find_default()
-    if len(oot_nocscript_files) == 0 and len(uhd_nocscript_files) == 0:
-        print("[ERROR] No nocscript xml files found")
-        exit(1)
-    available_blocks = nocscript_parser.parse(oot_nocscript_files + uhd_nocscript_files)
+        available_blocks = get_blocks(args.oot_include_dir + args.uhd_include_dir)
     # Only validate nocscript
     if args.validate:
         print("No nocscript errors found")
