@@ -53,7 +53,7 @@ def get_bus_dict(args):
         raise NotImplementedError('Unknown io or bus type ' + bus_type)
 
 
-def get_chdr_dict(width=64, addr_width=32, name_prefix=None, name_postfix=None,
+def get_chdr_dict(width=64, name_prefix=None, name_postfix=None,
         assign_prefix=None, assign_postfix=None, master=False,
         clock=None, reset=None, bus_clock=None, bus_reset=None):
     signals = [('tdata', width), ('tlast', 1), ('tvalid', 1), ('tready', 1)]
