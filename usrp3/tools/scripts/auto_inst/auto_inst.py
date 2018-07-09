@@ -32,12 +32,9 @@ VERILOG_HEADER_TMPL = """
 /////////////////////////////////////////////////////////
 localparam NUM_CE = {num_ce};
 wire [NUM_CE*64-1:0] ce_flat_o_tdata, ce_flat_i_tdata;
-wire [63:0]          ce_o_tdata, ce_i_tdata;
+wire [63:0]          ce_o_tdata[0:NUM_CE-1], ce_i_tdata[0:NUM_CE-1];
 wire [NUM_CE-1:0]    ce_o_tlast, ce_o_tvalid, ce_o_tready, ce_i_tlast, ce_i_tvalid, ce_i_tready;
 wire [63:0]          ce_debug[0:NUM_CE-1];
-
-wire ce_clk = radio_clk;
-wire ce_rst = radio_rst;
 
 // Flattern CE tdata arrays
 genvar k;
