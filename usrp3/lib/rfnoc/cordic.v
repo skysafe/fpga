@@ -6,7 +6,7 @@
 //
 
 module cordic #(
-  parameter bitwidth = 16,
+  parameter bitwidth = 24,
   parameter stages = 19,
   parameter zwidth = 24
 )(
