@@ -19,7 +19,7 @@ module noc_block_schmidl_cox_tb();
 
   // Instiantiate RFNoC blocks in testbench
   `RFNOC_ADD_BLOCK(noc_block_file_source,0);
-  defparam noc_block_file_source.FILENAME = "../../../../test-sc16.bin";
+  defparam noc_block_file_source.FILENAME = "test-sc16.bin";
   `RFNOC_ADD_BLOCK(noc_block_schmidl_cox,1);
   `RFNOC_ADD_BLOCK(noc_block_fft,2);
   defparam noc_block_fft.EN_MAGNITUDE_OUT        = 0;
@@ -87,7 +87,7 @@ module noc_block_schmidl_cox_tb();
     tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_NUMBER_SYMBOLS_MAX, PACKET_LENGTH);  // Maximum number of symbols (excluding preamble)
     tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_NUMBER_SYMBOLS_SHORT, 32'd0);        // Unused
     // Schmidl & Cox algorithm uses a metric normalized between 0.0 - 1.0.
-    tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_THRESHOLD, 16'd0, 16'd14335);        // Threshold (format Q1.14, Sign bit, 1 integer, 14 fractional), 14335 ~= +0.875
+    tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_THRESHOLD, 16'd14335);               // Threshold (format Q1.14, Sign bit, 1 integer, 14 fractional), 14335 ~= +0.875
     $display("Done");
     $display("Setup FFT");
     tb_streamer.write_reg(sid_noc_block_fft, noc_block_fft.SR_FFT_SIZE_LOG2, FFT_SIZE_LOG2);                                   // FFT size

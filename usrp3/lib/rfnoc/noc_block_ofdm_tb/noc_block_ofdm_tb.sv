@@ -8,7 +8,7 @@
 `include "sim_exec_report.vh"
 `include "sim_rfnoc_lib.svh"
 
-module noc_block_schmidl_cox_tb();
+module noc_block_ofdm_tb();
   // Initialize RFNoC test bench infrastructure
   `TEST_BENCH_INIT("noc_block_ofdm_tb",`NUM_TEST_CASES,`NS_PER_TICK);
   localparam BUS_CLK_PERIOD = $ceil(1e9/166.67e6);
@@ -19,7 +19,7 @@ module noc_block_schmidl_cox_tb();
 
   // Instiantiate RFNoC blocks in testbench
   `RFNOC_ADD_BLOCK(noc_block_file_source,0);
-  defparam noc_block_file_source.FILENAME = "../../../../test-sc16.bin";
+  defparam noc_block_file_source.FILENAME = "ofdm_test_vectors.dat";
   `RFNOC_ADD_BLOCK(noc_block_schmidl_cox,1);
   `RFNOC_ADD_BLOCK(noc_block_fft,2);
   defparam noc_block_fft.EN_MAGNITUDE_OUT        = 0;
@@ -94,7 +94,7 @@ module noc_block_schmidl_cox_tb();
     tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_NUMBER_SYMBOLS_MAX, PACKET_LENGTH);  // Maximum number of symbols (excluding preamble)
     tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_NUMBER_SYMBOLS_SHORT, 32'd0);        // Unused
     // Schmidl & Cox algorithm uses a metric normalized between 0.0 - 1.0.
-    tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_THRESHOLD, 16'd0, 16'd14335);        // Threshold (format Q1.14, Sign bit, 1 integer, 14 fractional), 14335 ~= +0.875
+    tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_THRESHOLD, 16'd14335);               // Threshold (format Q1.14, Sign bit, 1 integer, 14 fractional), 14335 ~= +0.875
     $display("Done");
     $display("Setup FFT");
     tb_streamer.write_reg(sid_noc_block_fft, noc_block_fft.SR_FFT_SIZE_LOG2, FFT_SIZE_LOG2);                                   // FFT size
@@ -121,7 +121,7 @@ module noc_block_schmidl_cox_tb();
     for (int n = 0; n < NUM_PACKETS; n = n + 1) begin
       for (int l = 0; l < PACKET_LENGTH; l = l + 1) begin
         for (int k = 0; k < OFDM_SYMBOL_SIZE; k = k + 1) begin
-          tb_axis_data.pull_word({real_val,cplx_val},last);
+          tb_streamer.pull_word({real_val,cplx_val},last);
         end
       end
     end
