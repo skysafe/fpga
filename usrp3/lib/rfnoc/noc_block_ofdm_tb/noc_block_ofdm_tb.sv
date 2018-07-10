@@ -8,7 +8,7 @@
 `include "sim_exec_report.vh"
 `include "sim_rfnoc_lib.svh"
 
-module noc_block_schmidl_cox_tb();
+module noc_block_ofdm_tb();
   // Initialize RFNoC test bench infrastructure
   `TEST_BENCH_INIT("noc_block_ofdm_tb",`NUM_TEST_CASES,`NS_PER_TICK);
   localparam BUS_CLK_PERIOD = $ceil(1e9/166.67e6);
@@ -19,8 +19,9 @@ module noc_block_schmidl_cox_tb();
 
   // Instiantiate RFNoC blocks in testbench
   `RFNOC_ADD_BLOCK(noc_block_file_source,0);
-  defparam noc_block_file_source.FILENAME = "../../../../test-sc16.bin";
-  `RFNOC_ADD_BLOCK(noc_block_schmidl_cox,1);
+  defparam noc_block_file_source.FILENAME = "../../noc_block_schmidl_cox_tb/octave-sym/test-sc16.bin";
+  defparam noc_block_file_source.FILE_LENGTH = 4*2**16;
+  `RFNOC_ADD_BLOCK(noc_block_ofdm_sync,1);
   `RFNOC_ADD_BLOCK(noc_block_fft,2);
   defparam noc_block_fft.EN_MAGNITUDE_OUT        = 0;
   defparam noc_block_fft.EN_MAGNITUDE_APPROX_OUT = 0;
@@ -40,7 +41,7 @@ module noc_block_schmidl_cox_tb();
   localparam [15:0] FFT_SIZE         = OFDM_SYMBOL_SIZE;
   localparam [31:0] FFT_SIZE_LOG2    = $clog2(FFT_SIZE);
   localparam [31:0] FFT_DIRECTION    = noc_block_fft.FFT_FORWARD; // Forward
-  localparam [31:0] FFT_SCALING      = 12'b010101010101;          // Aggressive scaling
+  localparam [31:0] FFT_SCALING      = 12'b000001010101;          // Moderate scaling
   localparam [31:0] FFT_SHIFT_CONFIG = 1;                         // Reverse FFT shift, output negative frequencies first
 
   localparam MTU                     = 1440/8;                    // About the size of a 1500 byte Ethernet packet in 8 byte words
@@ -67,17 +68,17 @@ module noc_block_schmidl_cox_tb();
     ********************************************************/
     `TEST_CASE_START("Check NoC ID");
     // Read NOC IDs
-    tb_streamer.read_reg(sid_noc_block_schmidl_cox, RB_NOC_ID, readback);
-    $display("Read Schmidl-Cox NOC ID: %16x", readback);
-    `ASSERT_ERROR(readback == noc_block_schmidl_cox.NOC_ID, "Incorrect NOC ID");
+    tb_streamer.read_reg(sid_noc_block_ofdm_sync, RB_NOC_ID, readback);
+    $display("Read OFDM Sync NOC ID: %16x", readback);
+    `ASSERT_ERROR(readback == noc_block_ofdm_sync.NOC_ID, "Incorrect NOC ID");
     `TEST_CASE_DONE(1);
 
     /********************************************************
     ** Test 3 -- Connect RFNoC blocks
     ********************************************************/
     `TEST_CASE_START("Connect RFNoC blocks");
-    `RFNOC_CONNECT(noc_block_file_source,noc_block_schmidl_cox,SC16,MTU);
-    `RFNOC_CONNECT(noc_block_schmidl_cox,noc_block_fft,SC16,OFDM_SYMBOL_SIZE);
+    `RFNOC_CONNECT(noc_block_file_source,noc_block_ofdm_sync,SC16,MTU);
+    `RFNOC_CONNECT(noc_block_ofdm_sync,noc_block_fft,SC16,OFDM_SYMBOL_SIZE);
     `RFNOC_CONNECT(noc_block_fft,noc_block_eq,SC16,OFDM_SYMBOL_SIZE);
     `RFNOC_CONNECT(noc_block_eq,noc_block_ofdm_constellation_demapper,SC16,OFDM_SYMBOL_SIZE);
     `RFNOC_CONNECT(noc_block_ofdm_constellation_demapper,noc_block_tb,SC16,OFDM_SYMBOL_SIZE);
@@ -87,14 +88,7 @@ module noc_block_schmidl_cox_tb();
     ** Test 4 -- Setup RFNoC Blocks
     ********************************************************/
     `TEST_CASE_START("Setup RFNoC Blocks");
-    $display("Setup Schmidl-Cox");
-    tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_FRAME_LEN, OFDM_SYMBOL_SIZE);        // FFT Size
-    tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_GAP_LEN, 32'd16);                    // Cyclic Prefix length
-    tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_OFFSET, {32'd160+32+64-8});          // Skip short preamble + skip long preamble CP + skip first long preamble sym
-    tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_NUMBER_SYMBOLS_MAX, PACKET_LENGTH);  // Maximum number of symbols (excluding preamble)
-    tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_NUMBER_SYMBOLS_SHORT, 32'd0);        // Unused
-    // Schmidl & Cox algorithm uses a metric normalized between 0.0 - 1.0.
-    tb_streamer.write_reg(sid_noc_block_schmidl_cox, noc_block_schmidl_cox.schmidl_cox.SR_THRESHOLD, 16'd0, 16'd14335);        // Threshold (format Q1.14, Sign bit, 1 integer, 14 fractional), 14335 ~= +0.875
+    $display("Setup OFDM Sync");
     $display("Done");
     $display("Setup FFT");
     tb_streamer.write_reg(sid_noc_block_fft, noc_block_fft.SR_FFT_SIZE_LOG2, FFT_SIZE_LOG2);                                   // FFT size
@@ -121,7 +115,7 @@ module noc_block_schmidl_cox_tb();
     for (int n = 0; n < NUM_PACKETS; n = n + 1) begin
       for (int l = 0; l < PACKET_LENGTH; l = l + 1) begin
         for (int k = 0; k < OFDM_SYMBOL_SIZE; k = k + 1) begin
-          tb_axis_data.pull_word({real_val,cplx_val},last);
+          tb_streamer.pull_word({real_val,cplx_val},last);
         end
       end
     end

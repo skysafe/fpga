@@ -55,6 +55,9 @@ complex_invert.v \
 periodic_framer.v \
 threshold_scaled.v \
 moving_sum.v \
+moving_sum_complex.v \
+moving_avg.v \
+moving_avg_complex.v \
 peak_finder.v \
 window.v \
 counter.v \
@@ -147,4 +150,9 @@ dds_freq_tune.v \
 dds_timed.v \
 datapath_gatekeeper.v \
 biquad_filter.v \
+noc_block_ofdm_sync.v \
+ofdm_sync.sv \
+ofdm_framer.sv \
+short_preamble_detector.sv \
+long_preamble_detector.sv \
 ))
