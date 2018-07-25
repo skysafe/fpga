@@ -1,142 +1,153 @@
-##
-## Copyright 2015 Ettus Research LLC
-##
-## Generate test data for use with Schmidl Cox testbench.
-## Also generates several plots of interesting parts of the Schmidl Cox algorithm.
-##
+%%
+%% Copyright 2015 Ettus Research LLC
+%%
+
 clc;
 close all;
-clear all;
 
-# User variables
-timing_error    = 0;     # Offset error
-freq_offset_ppm = 40;    # TCXO frequency offset in parts per million, typical value would be +/-20
-gain            = 10;    # dB
-snr             = 40;    # dB
-packet_length   = 12;    # Number of symbols per packet (excluding preamble)
-num_packets     = 10;    # Number of packets to generate
+%% User variables
+gap                     = 300;   % Number of zero samples between packets
+phase_offset            = pi/7;  % Phase offset
+freq_offset_ppm         = -100;  % TCXO frequency offset in parts per million, typical value would be +/-20
+gain                    = 0;     % dB
+snr                     = 10;    % dB
+data_symbols_per_packet = 200;   % Number of symbols per packet (excluding preamble)
+num_packets             = 2;     % Number of packets to generate
 
-# Simulation variables (generally should not need to touch these)
-tx_freq         = 2.4e9;
+%% Simulation variables (generally should not need to touch these)
+tx_freq         = 5.3e9;
 sample_rate     = 200e6;
 cp_length       = 16;
-symbol_length   = 64;
+fft_length      = 64;
 window_length   = 64;
-cordic_bitwidth = 24;
-cordic_bitwidth_adj = cordic_bitwidth-3; # Lose 3 bits due to Xilinx's CORDIC scaled radians format
-plateau_index   = 125;
+cordic_bitwidth = 16;
+cordic_bitwidth_adj = cordic_bitwidth-3; % Lose 3 bits due to Xilinx's CORDIC scaled radians format
 
-##### Generate test data
-# From 802.11 specification
+%% Generate test data
+% From 802.11 specification
+% Short preamble
 short_ts_f = sqrt(13/6)*[0,0,0,0,0,0,0,0,1+j,0,0,0,-1-j,0,0,0,1+j,0,0,0,-1-j,0,0,0,-1-j,0,0,0,1+j,0,0,0,0,0,0,0,-1-j,0,0,0,-1-j,0,0,0,1+j,0,0,0,1+j,0,0,0,1+j,0,0,0,1+j,0,0,0,0,0,0,0];
-short_ts_f = ifftshift(short_ts_f);
-short_ts_t = ifft(short_ts_f);
-#12/52 carrier used + DC
-long_ts_f = [1 1 -1 -1 1 1 -1 1 -1 1 1 1 1 1 1 -1 -1 1 1 -1 1 -1 1 1 1 1 0 1 -1 -1 1 1 -1 1 -1 1 -1 -1 -1 -1 -1 1 1 -1 -1 1 -1 1 -1 1 1 1 1];
-ifft_data = [long_ts_f(27:end) 0 0 0 0 0 0 0 0 0 0 0 long_ts_f(1:26)];
-long_ts_t = ifft(ifft_data);
+short_ts_t = ifft(ifftshift(short_ts_f));
+% Long preamble
+long_ts_f = [0,0,0,0,0,0,1,1,-1,-1,1,1,-1,1,-1,1,1,1,1,1,1,-1,-1,1,1,-1,1,-1,1,1,1,1,0,1,-1,-1,1,1,-1,1,-1,1,-1,-1,-1,-1,-1,1,1,-1,-1,1,-1,1,-1,1,1,1,1,0,0,0,0,0];
+long_ts_t = ifft(ifftshift(long_ts_f));
+% Carriers
+occupied_carriers = [7,8,9,10,12,13,14,15,16,17,18,19,20,21,22,23,24,26,27,28,29,30,31,32,34,35,36,37,38,40,41,42,43,44,45,46,47,48,49,50,51,52,54,55,56,57,58,59];
+pilot_carriers = [11,25,39,53];
+pilot_symbols = [1,1,1,1];
+guard_carriers = [1,2,3,4,5,6,33,60,61,62,63,64];
+lp_carriers = [occupied_carriers, pilot_carriers];
 
 short_preamble = zeros(1,160);
 for i=1:10
   short_preamble(16*(i-1)+1:16*i) = short_ts_t(1:(64/4));
-endfor
+end
 long_preamble = [long_ts_t(end-31:end) long_ts_t long_ts_t];
 
-for i=1:4096
-  ramp(i) = i/(2^15);
+%% Generate packets
+preamble_offset = gap+length(short_preamble)+length(long_preamble);
+packet_length = length(short_preamble)+length(long_preamble)+data_symbols_per_packet*(cp_length+fft_length);
+test_data = zeros(1,num_packets*(gap+packet_length));
+for i=1:num_packets
+  data_symbols = generate_qpsk_symbols(randi(4, data_symbols_per_packet*length(occupied_carriers))-1);
+  ofdm_data_symbols = generate_ofdm_symbols(data_symbols, fft_length, occupied_carriers, pilot_carriers, pilot_symbols, 16);
+  test_data(1,(gap+packet_length)*(i-1)+1:(gap+packet_length)*i) = [zeros(1, gap), short_preamble, long_preamble, ofdm_data_symbols];
 end
 
-# First packet
-test_data = [zeros(1,128) short_preamble long_preamble];
-preamble_offset = length(test_data);
-for i=1:packet_length
-  test_data = [test_data long_ts_t(end-15:end) long_ts_t];
-end
-# Additional packets
-for k=1:num_packets-1
-  test_data = [test_data short_preamble long_preamble];
-  for i=1:packet_length
-    test_data = [test_data long_ts_t(end-15:end) long_ts_t];
-  end
-end
+%% Add phase offset
+test_data_phase_offset = exp(2*j*phase_offset)*test_data;
 
-# Add frequency offset
+%% Add frequency offset
 offset = ((freq_offset_ppm/1e6)*tx_freq)/sample_rate;
 expected_phase_word = ((2^cordic_bitwidth_adj)/window_length)*angle(exp(j*(window_length)*2*pi*offset))/pi;
-printf("Expected phase word: %d (%f)\n",round(expected_phase_word),expected_phase_word);
-test_data = add_freq_offset(test_data, offset);
+fprintf("Expected phase word: %d (%f)\n",round(expected_phase_word),expected_phase_word);
+test_data_freq_offset = add_freq_offset(test_data_phase_offset , offset);
 
-# Add noise
-test_data = awgn(test_data, snr);
+%% Add noise, gain
+test_data_n = awgn(test_data_freq_offset, snr, 'measured');
+test_data_n = test_data_n  .* 10^(gain/20);
 
-# Add gain
-test_data = test_data .* 10^(gain/20);
+%% Schmidl Cox
+[D, corr, power, phase, trigger] = schmidl_cox(test_data_n , window_length, true);
+[D_max, peak_index] = max((trigger(1:gap+length(short_preamble)) > 0).*D(1:gap+length(short_preamble)));
 
-# Software based Schmidl Cox implementation for reference
-[D, corr, pow, phase, trigger] = schmidl_cox(test_data, window_length);
-printf("Actual phase word: %d (%f)\n",round(phase(plateau_index)*2^cordic_bitwidth_adj/window_length),phase(plateau_index)*2^cordic_bitwidth_adj/window_length);
+if (D_max > 0)
+    fprintf("Short preamble peak found at: %d\n", peak_index);
+else
+    fprintf("Short preamble not detected\n");
+end
 
-##### Plotting
-# Long preamble
-figure;
-subplot(1,2,1)
-hold on;
-title('Long preamble')
-plot(real(fftshift(fft(test_data(preamble_offset+cp_length+timing_error+1:preamble_offset+cp_length+symbol_length+timing_error)))));
-plot(imag(fftshift(fft(test_data(preamble_offset+cp_length+timing_error+1:preamble_offset+cp_length+symbol_length+timing_error)))),'r');
+% figure;
+% hold on;
+% plot(abs(corr), 'r');
+% plot(power, 'b');
+% %plot(real(test_data_n), 'k');
+% plot(D, 'g');
+% %plot(trigger, 'c');
 
-# Frequency corrected long preamble
-long_preamble = add_freq_offset(test_data(preamble_offset+cp_length+timing_error+1:preamble_offset+cp_length+symbol_length+timing_error),-phase(125)/(2*window_length)); # Correct for 2*pi & window len
-subplot(1,2,2)
-hold on;
-title('Long preamble frequency corrected')
-plot(real(fftshift(fft(long_preamble))));
-plot(imag(fftshift(fft(long_preamble))),'r');
+%% Align to start of short preamble based on detected peak from Schmidl Cox
+peak_offset = length(short_preamble);  % Peak is this far into short preamble
+packet = test_data_n(peak_index-peak_offset:peak_index-peak_offset+packet_length+10);
 
-# Plot long term effect of CORDIC phase bit width on frequency accuracy
-figure;
-hold on;
-long_preamble_pre_fft = add_freq_offset(test_data(preamble_offset+timing_error+1:preamble_offset+timing_error+packet_length*(window_length+cp_length)),-round(phase(125)*2^cordic_bitwidth_adj/window_length)/(2*2^cordic_bitwidth_adj));
-long_preamble = [];
-for i = 1:packet_length
-  long_preamble = [long_preamble fft(fftshift(long_preamble_pre_fft((i-1)*80+16+1:i*80)))];
-endfor
-title('Packet data frequency corrected')
-plot(real(long_preamble));
-plot(imag(long_preamble),'r');
+%% Frequency correction
+freq_corr = -phase(peak_index)/(2*window_length*pi);
+fprintf("Short preamble phase word: %d (%f)\n",round(-2*freq_corr*2^cordic_bitwidth_adj),-2*freq_corr*2^cordic_bitwidth_adj);
+packet_freq_corr = add_freq_offset(packet, freq_corr);
 
-figure;
-subplot(3,2,1:2);
+%% Remove short preamble
+packet_post_sp = packet_freq_corr(length(short_preamble)-10:end); % -10 to start xcorr slightly before long preamble
+
+%% Xcorr long preamble for detection, fine timing, and frequency offset
+coeff = conj(fliplr([long_ts_t(end-31:end) long_ts_t]));
+% Quantize to +/-1, reduces complex mult to 
+coeff_quant = zeros(1,length(coeff));
+for i = 1:length(coeff)
+   coeff_quant(i) = (2*(real(coeff(i)) > 0)-1) + j*(2*(imag(coeff(i)) > 0)-1);
+end
+lp_xcorr = filter(coeff_quant, 1, packet_post_sp);  % Complex in, complex coefficient FIR
+lp_xcorr_abs = abs(lp_xcorr);
+[lp_xcorr_abs_sorted, lp_xcorr_abs_sorted_indexs] = sort(lp_xcorr_abs(1:160));
+lp_xcorr_peak_indexes = sort(lp_xcorr_abs_sorted_indexs(end-1:end));  % grab two largest values, sort to make sure earlier index is first
+if (lp_xcorr_peak_indexes(2) - lp_xcorr_peak_indexes(1)) ~= window_length
+  fprintf("ERROR: Did not find long preamble! Peak separation incorrect!\n")
+else
+  fprintf("Long preamble peak found at: %d\n", lp_xcorr_peak_indexes(1))
+end
+
+%% Align to start of LP
+lp_start = lp_xcorr_peak_indexes(1);
+packet_lp_aligned = packet_post_sp(lp_start-cp_length/2:end); % i.e. -8 from start of first lp symbol (not the cyclic prefix!)
+
+%% Equalize
+packet_eq_f = zeros(2, (data_symbols_per_packet+2)*fft_length);
+packet_eq_f(1,:) = equalize_ls(packet_lp_aligned, fft_length, cp_length, lp_carriers, guard_carriers, pilot_carriers, pilot_symbols, long_ts_f);
+packet_eq_f(2,:) = equalize_decision_directed(packet_lp_aligned, fft_length, cp_length, lp_carriers, occupied_carriers, guard_carriers, pilot_carriers, pilot_symbols, long_ts_f);
+
+%% Plot
+igure();
+subplot(1,2,1);
+plot(real(packet_eq_f(2,1:200*64)));
+subplot(1,2,2);
 hold on;
 grid on;
-plot(real(test_data));
-plot(imag(test_data), 'r');
-title('Time domain');
-subplot(3,2,3);
-plot(D(10:300),'k')
-title('D')
-subplot(3,2,4);
-plot(abs(corr(1:300)));
-title('Mag');
-subplot(3,2,5)
-plot(pow(1:300), 'r');
-title('Power')
-subplot(3,2,6)
-plot(phase(1:300), 'b');
-title('Angle')
+plot(packet_eq_f(1,2*64:200*64),'g.');
+plot(packet_eq_f(2,2*64:200*64),'b.');
+plot(sqrt(2)/2.*[1+j, 1-j, -1+j, -1-j],'r*');
+axis([-2 2 -2 2]);
 
-##### Write to disk
-# Convert to sc16
-test_data_sc16 = zeros(1,2*length(test_data));
-test_data_sc16(1:2:end-1) = int16((2^15).*real(test_data));
-test_data_sc16(2:2:end) = int16((2^15).*imag(test_data));
 
-# Complex float
-test_data_cplx_float = zeros(1,2*length(test_data));
-test_data_cplx_float(1:2:end-1) = real(test_data);
-test_data_cplx_float(2:2:end) = imag(test_data); 
+%% Write to disk
+% Convert to sc16
+test_data_sc16 = zeros(1,2*length(test_data_n ));
+test_data_sc16(1:2:end-1) = int16((2^15).*real(test_data_n ));
+test_data_sc16(2:2:end) = int16((2^15).*imag(test_data_n ));
 
-fileId = fopen('../test-sc16.bin', 'w');
+% Complex float
+test_data_cplx_float = zeros(1,2*length(test_data_n ));
+test_data_cplx_float(1:2:end-1) = real(test_data_n );
+test_data_cplx_float(2:2:end) = imag(test_data_n ); 
+
+fileId = fopen('test-sc16.bin', 'w');
 fwrite(fileId, test_data_sc16, 'int16');
 fclose(fileId);
 fileId = fopen('test-float.bin', 'w');
