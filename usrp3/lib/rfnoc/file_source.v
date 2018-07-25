@@ -86,9 +86,10 @@ module file_source #(
 
   always @(posedge clk) begin
     if(reset) begin
-      state <= IDLE;
-      count <= 0;
-      index <= 0;
+      state  <= IDLE;
+      seqnum <= 0;
+      count  <= 0;
+      index  <= 0;
     end else begin
       case (state)
         IDLE : begin
