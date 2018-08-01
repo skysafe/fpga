@@ -4,10 +4,12 @@
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 //
+// Note: If using inequal FIFO depths, use FIFO_SIZE_VEC instead of FIFO_SIZE.
 
 module split_stream_fifo
   #(parameter WIDTH=16,
     parameter FIFO_SIZE=5,
+    parameter [32*4-1:0] FIFO_SIZE_VEC={4{FIFO_SIZE[31:0]}}
     parameter ACTIVE_MASK=4'b1111)
    (input clk, input reset, input clear,
     input [WIDTH-1:0] i_tdata, input i_tlast, input i_tvalid, output i_tready,
@@ -31,25 +33,25 @@ module split_stream_fifo
 
    generate
       if(ACTIVE_MASK[0])
-	axi_fifo #(.WIDTH(WIDTH+1), .SIZE(FIFO_SIZE)) axi_fifo0
+	axi_fifo #(.WIDTH(WIDTH+1), .SIZE(FIFO_SIZE_VEC[31:0])) axi_fifo0
 	  (.clk(clk), .reset(reset), .clear(clear),
 	   .i_tdata({o0_tlast_int, o0_tdata_int}), .i_tvalid(o0_tvalid_int), .i_tready(o0_tready_int),
 	   .o_tdata({o0_tlast, o0_tdata}), .o_tvalid(o0_tvalid), .o_tready(o0_tready),
 	   .occupied(), .space());
       if(ACTIVE_MASK[1])
-	axi_fifo #(.WIDTH(WIDTH+1), .SIZE(FIFO_SIZE)) axi_fifo1
+	axi_fifo #(.WIDTH(WIDTH+1), .SIZE(FIFO_SIZE_VEC[63:32])) axi_fifo1
 	  (.clk(clk), .reset(reset), .clear(clear),
 	   .i_tdata({o1_tlast_int, o1_tdata_int}), .i_tvalid(o1_tvalid_int), .i_tready(o1_tready_int),
 	   .o_tdata({o1_tlast, o1_tdata}), .o_tvalid(o1_tvalid), .o_tready(o1_tready),
 	   .occupied(), .space());
       if(ACTIVE_MASK[2])
-	axi_fifo #(.WIDTH(WIDTH+1), .SIZE(FIFO_SIZE)) axi_fifo2
+	axi_fifo #(.WIDTH(WIDTH+1), .SIZE(FIFO_SIZE_VEC[95:64])) axi_fifo2
 	  (.clk(clk), .reset(reset), .clear(clear),
 	   .i_tdata({o2_tlast_int, o2_tdata_int}), .i_tvalid(o2_tvalid_int), .i_tready(o2_tready_int),
 	   .o_tdata({o2_tlast, o2_tdata}), .o_tvalid(o2_tvalid), .o_tready(o2_tready),
 	   .occupied(), .space());
       if(ACTIVE_MASK[3])
-	axi_fifo #(.WIDTH(WIDTH+1), .SIZE(FIFO_SIZE)) axi_fifo3
+	axi_fifo #(.WIDTH(WIDTH+1), .SIZE(FIFO_SIZE_VEC[127:96])) axi_fifo3
 	  (.clk(clk), .reset(reset), .clear(clear),
 	   .i_tdata({o3_tlast_int, o3_tdata_int}), .i_tvalid(o3_tvalid_int), .i_tready(o3_tready_int),
 	   .o_tdata({o3_tlast, o3_tdata}), .o_tvalid(o3_tvalid), .o_tready(o3_tready),
