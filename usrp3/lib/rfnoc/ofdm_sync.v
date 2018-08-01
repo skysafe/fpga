@@ -2,20 +2,15 @@
 // Copyright 2018 SkySafe Inc.
 //
 module ofdm_sync #(
-  parameter WINDOW_LEN = 64,
-  parameter SYMBOL_LEN = 64,
+  parameter WINDOW_LEN         = 64,
+  parameter SYMBOL_LEN         = 64,
   parameter CYCLIC_PREFIX_LEN  = 16,
-  parameter SHORT_PREAMBLE_LEN = 160,
-  parameter LONG_PREAMBLE_XCORR_LEN = 80,
-  parameter [32*2*LONG_PREAMBLE_XCORR_LEN-1:0] LONG_PREAMBLE_XCORR_QUANT = 0
+  parameter PREAMBLE_LEN       = 160
 )(
-  input clk, input reset, input clear,
-  input set_stb, input [7:0] set_addr, input [31:0] set_data,
+  input clk, input reset,
+  input [7:0] num_symbols, input num_symbols_valid
   input [31:0] i_tdata, input i_tlast, input i_tvalid, output i_tready,
   output [31:0] o_tdata, output o_tlast, output o_tvalid, input o_tready,
-  input [7:0] num_symbols, input num_symbols_valid,
-  output sof,  // Start of frame at long preamble
-  output eof   // End of frame
 );
 
   wire [31:0] samples_in_tdata[0:3];
@@ -157,10 +152,11 @@ module ofdm_sync #(
     .CORR_WIDTH(CORR_WIDTH),
     .POWER_WIDTH(POWER_WIDTH),
     .SYMBOL_LEN(CYCLIC_PREFIX_LEN+SYMBOL_LEN),
-    .OFFSET(0))  // Remove short preamble
+    .OFFSET(0), // Remove short preambl
+    .MAX_NUM_SYMBOLS(256))
   inst_short_preamble_detector (
     .clk(clk), .reset(reset),
-    .num_symbols(num_symbols), .num_symbols_valid(num_symbols_valid),
+    .num_symbols(num_symbols),
     .i_corr_tdata(corr_ma_tdata[0]), .i_corr_tvalid(corr_ma_tvalid[0]), .i_corr_tready(corr_ma_tready[0]),
     .i_power_tdata(power_ma_tdata), .i_power_tvalid(power_ma_tvalid), .i_power_tready(power_ma_tready),
     .i_samples_tdata(samples_in_tdata[3]), .i_samples_tlast(1'b0),
@@ -195,13 +191,29 @@ module ofdm_sync #(
   /////////////////////////////////////////////////////////
   // Long Preamble Peak Detection, Fine Timing Correction
   /////////////////////////////////////////////////////////
+  // Quantized long preamble
+  // 16 samples cyclic prefix + 64 samples long preamble symbol
+  localparam CORR_LEN = 80;
+  localparam [32*CORR_LEN-1:0] CORR_COEFFS = {
+    {-1,-1},{ 1,-1},{ 1, 1},{ 1, 1},{ 1,-1},{-1,-1},{-1,-1},{ 1,-1},{ 1, 1},{ 1,-1},
+    {-1,-1},{ 1,-1},{ 1,-1},{-1, 1},{ 1,-1},{ 1,-1},{ 1, 1},{-1, 1},{-1, 1},{ 1, 1},
+    { 1, 1},{-1, 1},{-1,-1},{-1,-1},{-1,-1},{-1,-1},{ 1,-1},{-1, 1},{-1, 1},{ 1, 1},
+    { 1, 1},{-1,-1},{ 1,-1},{ 1,-1},{-1,-1},{-1,-1},{ 1, 1},{-1, 1},{-1, 1},{-1, 1},
+    {-1, 1},{-1,-1},{ 1,-1},{ 1,-1},{-1,-1},{-1,-1},{ 1,-1},{ 1, 1},{ 1, 1},{-1,-1},
+    { 1, 1},{ 1, 1},{-1, 1},{ 1, 1},{ 1,-1},{ 1, 1},{-1, 1},{-1, 1},{ 1, 1},{ 1,-1},
+    { 1,-1},{ 1, 1},{-1, 1},{ 1,-1},{-1,-1},{ 1,-1},{ 1, 1},{ 1, 1},{ 1,-1},{-1,-1},
+    {-1,-1},{ 1,-1},{ 1, 1},{ 1,-1},{-1,-1},{ 1,-1},{ 1,-1},{-1, 1},{ 1,-1},{ 1,-1}};
+
   wire [31:0] samples_lp_align_tdata;
   wire samples_lp_align_tlast, samples_lp_align_tvalid, samples_lp_align_tready;
   long_preamble_detector #(
     .WIDTH(WIDTH),
-    .PREAMBLE_LEN(LONG_PREAMBLE_LEN),
-    .PREAMBLE_QUANT(LONG_PREAMBLE_QUANT),
-    .OFFSET(CP_LENGTH/2))  // Align halfway into 
+    .PEAK_DELTA(SYMBOL_LEN),
+    .PREAMBLE_LEN(PREAMBLE_LEN),
+    .SEARCH_PAD(32),
+    .CORR_LEN(CORR_LEN),
+    .CORR_COEFFS(CORR_COEFFS),
+    .DELAY_ADJ(0))  // o_tlast marks start of long preamble
   inst_long_preamble_detector (
     .clk(clk), .reset(reset),
     .i_tdata(samples_fc_tdata), .i_tlast(samples_fc_tlast),
@@ -209,12 +221,18 @@ module ofdm_sync #(
     .o_tdata(samples_lp_align_tdata), .o_tlast(samples_lp_align_tlast),
     .o_tvalid(samples_lp_align_tvalid), .o_tready(samples_lp_align_tready));
 
-  cyclic_prefix_removal #(
-    .LENGTH(CYCLIC_PREFIX_LEN))
-  inst_cyclic_prefix_removal (
+  ofdm_framer #(
+    .WIDTH(WIDTH),
+    .INITIAL_GAP(24),
+    .LONG_PREAMBLE_LEN(PREAMBLE_LEN),
+    .CYCLIC_PREFIX_LEN(CYCLIC_PREFIX_LEN),
+    .SYMBOL_LEN(SYMBOL_LEN),
+    .MAX_NUM_SYMBOLS(256)
+  inst_ofdm_framer (
     .clk(clk), .reset(reset),
-    .sof(), .eof(),
-    .i_tdata(), .i_tlast(), .i_tvalid(), .i_tready(),
-    .o_tdata(), .o_tlast(), .o_tvalid(), .o_tready());
+    .i_tdata(samples_lp_align_tdata), .i_tlast(samples_lp_align_tlast),
+    .i_tvalid(samples_lp_align_tvalid), .i_tready(samples_lp_align_tready),
+    .o_tdata(o_tdata), .o_tlast(o_tlast),
+    .o_tvalid(o_tvalid), .o_tready(o_tready));
 
 endmodule
