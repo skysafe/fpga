@@ -9,13 +9,15 @@
 // Note: If inputs have inequal bitwidths, use WIDTH_VEC instead of WIDTH to define
 //       the individual bit widths. Each bit width is defined with 8-bits stuffed
 //       into a vector of width 8*SIZE.
+//       If using inequal FIFO depths, use FIFO_SIZE_VEC instead of FIFO_SIZE.
 //
 
 module axi_sync #(
-  parameter               SIZE      = 2,
-  parameter               WIDTH     = 32,
-  parameter [32*SIZE-1:0] WIDTH_VEC = {SIZE{WIDTH[31:0]}},
-  parameter               FIFO_SIZE = 0
+  parameter               SIZE          = 2,
+  parameter               WIDTH         = 32,
+  parameter [32*SIZE-1:0] WIDTH_VEC     = {SIZE{WIDTH[31:0]}},
+  parameter               FIFO_SIZE     = 0,
+  parameter [32*SIZE-1:0] FIFO_SIZE_VEC = {SIZE{FIFO_SIZE[31:0]}}
 )(
   input clk, input reset, input clear,
   input [msb(SIZE,WIDTH_VEC)-1:0] i_tdata, input  [SIZE-1:0] i_tlast, input  [SIZE-1:0] i_tvalid, output [SIZE-1:0] i_tready,
@@ -43,7 +45,10 @@ module axi_sync #(
   genvar i;
   generate
     for (i = 0; i < SIZE; i = i + 1) begin
-      axi_fifo #(.WIDTH(msb(i,WIDTH_VEC)-msb(i-1,WIDTH_VEC)+1), .SIZE(FIFO_SIZE)) axi_fifo (
+      axi_fifo #(
+        .WIDTH(WIDTH_VEC[32*(i+1)-1:32*i]),
+        .SIZE(FIFO_SIZE_VEC[32*(i+1)-1:32*i]))
+      axi_fifo (
         .clk(clk), .reset(reset), .clear(clear),
         .i_tdata({i_tlast[i],i_tdata[msb(i,WIDTH_VEC)-1:msb(i-1,WIDTH_VEC)]}),
         .i_tvalid(i_tvalid[i]), .i_tready(i_tready[i]),
