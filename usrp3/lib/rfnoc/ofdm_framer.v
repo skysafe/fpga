@@ -21,7 +21,7 @@ module ofdm_framer #(
   localparam S_INITIAL_GAP        = 3'd1;
   localparam S_LONG_PREAMBLE      = 3'd2;
   localparam S_CYCLIC_PREFIX      = 3'd3;
-  localparam S_PAYLOAD            = 3'd4;
+  localparam S_SYMBOL             = 3'd4;
 
   reg num_symbols_set;
   reg [$clog2(MAX_NUM_SYMBOLS+1)-1:0] symbol_cnt;
@@ -48,7 +48,7 @@ module ofdm_framer #(
             end else if (CYCLIC_PREFIX_LEN > 0) begin
               state <= S_CYCLIC_PREFIX;
             end else begin
-              state <= S_PAYLOAD;
+              state <= S_SYMBOL;
             end
           end
         end
@@ -64,27 +64,27 @@ module ofdm_framer #(
               end else if (CYCLIC_PREFIX_LEN > 0) begin
                 state <= S_CYCLIC_PREFIX;
               end else begin
-                state <= S_PAYLOAD;
+                state <= S_SYMBOL;
               end
             end
           end
         end
         S_LONG_PREAMBLE: begin
           if (i_tvalid & i_tready) begin
-            if (cnt < LONG_PREAMBLE_SYMBOL_LEN-1) begin
+            if (cnt < SYMBOL_LEN-1) begin
               cnt   <= cnt + 1;
             end else begin
               o_sof <= 1'b0;
               cnt   <= 0;
-              if (num_symbols < LONG_PREAMBLE_NUM_SYMBOLS-1) begin
-                num_symbols <= 0;
-                if (CYCLIC_PREFIX_LEN > 0)
+              if (symbol_cnt < LONG_PREAMBLE_NUM_SYMBOLS-1) begin
+                symbol_cnt <= 0;
+                if (CYCLIC_PREFIX_LEN > 0) begin
                   state     <= S_CYCLIC_PREFIX;
                 end else begin
-                  state     <= S_PAYLOAD;
+                  state     <= S_SYMBOL;
                 end
               end else begin
-                num_symbols <= num_symbols + 1;
+                symbol_cnt <= symbol_cnt + 1;
               end
             end
           end
@@ -95,7 +95,7 @@ module ofdm_framer #(
               cnt   <= cnt + 1;
             end else begin
               cnt   <= 0;
-              state <= S_PAYLOAD;
+              state <= S_SYMBOL;
             end
           end
         end
@@ -130,10 +130,10 @@ module ofdm_framer #(
     end
   end
 
-  assign o_eof = (state == S_PAYLOAD) && (num_symbols_set ? (symbol_cnt >= num_symbols) : (symbol_cnt >= MAX_NUM_SYMBOLS));
+  assign o_eof = (state == S_SYMBOL) && (num_symbols_set ? (symbol_cnt >= num_symbols) : (symbol_cnt >= MAX_NUM_SYMBOLS));
 
   assign o_tdata  = i_tdata;
-  assign o_tvalid = i_tvalid && (state == S_LONG_PREAMBLE || state == S_PAYLOAD);
+  assign o_tvalid = i_tvalid && (state == S_LONG_PREAMBLE || state == S_SYMBOL);
   assign o_tlast  = (cnt == SYMBOL_LEN-1);
   assign i_tready = o_tready;
 

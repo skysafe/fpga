@@ -1,7 +1,7 @@
 //
 // Copyright 2018 SkySafe Inc.
 //
-module moving_avg #(
+module moving_avg_complex #(
   parameter LENGTH = 16,
   parameter WIDTH  = 16
 )(
@@ -11,21 +11,19 @@ module moving_avg #(
 );
 
   moving_avg #(
-    .MAX_LEN(LENGTH),
+    .LENGTH(LENGTH),
     .WIDTH(WIDTH))
   inst_moving_avg_real (
     .clk(clk), .reset(reset), .clear(clear),
-    .len(LENGTH),
     .i_tdata(i_tdata[2*WIDTH-1:WIDTH]), .i_tlast(i_tlast), .i_tvalid(i_tvalid), .i_tready(i_tready),
     .o_tdata(o_tdata[2*WIDTH-1:WIDTH]), .o_tlast(o_tlast), .o_tvalid(o_tvalid), .o_tready(o_tready));
 
   moving_avg #(
-    .MAX_LEN(LENGTH),
+    .LENGTH(LENGTH),
     .WIDTH(WIDTH))
   inst_moving_avg_imag (
     .clk(clk), .reset(reset), .clear(clear),
-    .len(LENGTH),
     .i_tdata(i_tdata[WIDTH-1:0]), .i_tlast(1'b0), .i_tvalid(i_tvalid), .i_tready(),
     .o_tdata(o_tdata[WIDTH-1:0]), .o_tlast(), .o_tvalid(), .o_tready(o_tready));
 
-end
+endmodule

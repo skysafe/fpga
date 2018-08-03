@@ -106,36 +106,30 @@ module noc_block_ofdm_sync #(
   // User code
   //
   ////////////////////////////////////////////////////////////
-  localparam [7:0] BASE = 129;
+  localparam [31:0] SR_NUM_SYMBOLS  = 129;
 
-  // Quantized long preamble
-  localparam [32*96-1:0] LONG_PREAMBLE_XCORR_QUANT = {
-    {-1,-1},{ 1,-1},{ 1, 1},{ 1, 1},{ 1,-1},{-1,-1},{-1,-1},{ 1,-1},
-    { 1, 1},{ 1,-1},{-1,-1},{ 1,-1},{ 1,-1},{-1, 1},{ 1,-1},{ 1,-1},
-    { 1, 1},{-1, 1},{-1, 1},{ 1, 1},{ 1, 1},{-1, 1},{-1,-1},{-1,-1},
-    {-1,-1},{-1,-1},{ 1,-1},{-1, 1},{-1, 1},{ 1, 1},{ 1, 1},{-1,-1},
-    { 1,-1},{ 1,-1},{-1,-1},{-1,-1},{ 1, 1},{-1, 1},{-1, 1},{-1, 1},
-    {-1, 1},{-1,-1},{ 1,-1},{ 1,-1},{-1,-1},{-1,-1},{ 1,-1},{ 1, 1},
-    { 1, 1},{-1,-1},{ 1, 1},{ 1, 1},{-1, 1},{ 1, 1},{ 1,-1},{ 1, 1},
-    {-1, 1},{-1, 1},{ 1, 1},{ 1,-1},{ 1,-1},{ 1, 1},{-1, 1},{ 1,-1},
-    {-1,-1},{ 1,-1},{ 1, 1},{ 1, 1},{ 1,-1},{-1,-1},{-1,-1},{ 1,-1},
-    { 1, 1},{ 1,-1},{-1,-1},{ 1,-1},{ 1,-1},{-1, 1},{ 1,-1},{ 1,-1},
-    { 1, 1},{-1, 1},{-1, 1},{ 1, 1},{ 1, 1},{-1, 1},{-1,-1},{-1,-1},
-    {-1,-1},{-1,-1},{ 1,-1},{-1, 1},{-1, 1},{ 1, 1},{ 1, 1},{-1,-1}
-  }
+  localparam [31:0] MAX_NUM_SYMBOLS = 512;
+
+  // Settings Registers
+  wire [$clog2(MAX_NUM_SYMBOLS+1)-1:0] num_symbols;
+  wire num_symbols_valid;
+  setting_reg #(
+    .my_addr(SR_NUM_SYMBOLS), .awidth(8), .width($clog2(MAX_NUM_SYMBOLS+1)))
+  sr_fft_reset (
+    .clk(ce_clk), .rst(ce_rst),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(num_symbols), .changed(num_symbols_valid));
 
   ofdm_sync #(
     .WINDOW_LEN(64),
     .SYMBOL_LEN(64),
     .CYCLIC_PREFIX_LEN(16),
     .SHORT_PREAMBLE_LEN(160),
-    .LONG_PREAMBLE_XCORR_LEN(80),
-    .LONG_PREAMBLE_XCORR_QUANT(LONG_PREAMBLE_XCORR_QUANT)
+    .MAX_NUM_SYMBOLS(MAX_NUM_SYMBOLS)
   ) inst_ofdm_sync (
     .clk(ce_clk), .reset(ce_rst),
     .i_tdata(m_axis_data_tdata), .i_tlast(m_axis_data_tlast), .i_tvalid(m_axis_data_tvalid), .i_tready(m_axis_data_tready),
     .o_tdata(s_axis_data_tdata), .o_tlast(s_axis_data_tlast), .o_tvalid(s_axis_data_tvalid), .o_tready(s_axis_data_tready),
-    .num_symbols(), .num_symbols_valid(1'b0),
+    .num_symbols(num_symbols), .num_symbols_valid(num_symbols_valid),
     .sof(sof), .eof());
 
 endmodule

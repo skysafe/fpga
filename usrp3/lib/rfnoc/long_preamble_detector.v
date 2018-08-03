@@ -12,11 +12,11 @@ module long_preamble_detector #(
   // - Set to 0, o_tlast marks start of long preamble
   // - Set to PREAMBLE_LEN, o_tlast marks end of long preamble
   // - Set to -PREAMBLE_LEN, o_tlast marks beginning of short preamble
-  parameter DELAY_ADJ = 0,
+  parameter DELAY_ADJ = 0
 )(
   input clk, input reset,
   input [WIDTH-1:0] i_tdata, input i_tlast, input i_tvalid, output i_tready,
-  output [WIDTH-1:0] o_tdata, output o_tlast, output o_tvalid, input o_tready,
+  output [WIDTH-1:0] o_tdata, output o_tlast, output o_tvalid, input o_tready
 );
 
   wire [31:0] real_coeffs[0:CORR_LEN-1];
@@ -25,8 +25,8 @@ module long_preamble_detector #(
   genvar i;
   generate
     for (i = 0; i < CORR_LEN; i = i + 1) begin
-      real_coeffs[i] = CORR_COEFFS[64*i+63:64*i+32];
-      imag_coeffs[i] = CORR_COEFFS[64*i+31:64*i];
+      assign real_coeffs[i] = CORR_COEFFS[64*i+63:64*i+32];
+      assign imag_coeffs[i] = CORR_COEFFS[64*i+31:64*i];
     end
   endgenerate
 
@@ -51,7 +51,7 @@ module long_preamble_detector #(
 
   genvar r, x, n, k;
   always @(posedge clk) begin
-    if (reset | clear) begin
+    if (reset) begin
       for (r = 0; r < CORR_LEN; r = r + 1) begin
         sample_regs[r] <= 0;
       end
@@ -68,10 +68,10 @@ module long_preamble_detector #(
       // Apply coefficients
       // (a + bj)*(c + dj) = (ac - bd) + j(ad + bc) where a = +/-1 & b = +/-1
       for (x = 0; x < CORR_LEN; x = x + 1) begin
-        xcorr_regs[r][0] <= (real_coeffs[r] > 0 ? samples_regs[r][WIDTH-1:WIDTH/2] : -samples_regs[r][WIDTH-1:WIDTH/2]) -
-                            (imag_coeffs[r] > 0 ? samples_regs[r][WIDTH/2-1:0]     : -samples_regs[r][WIDTH/2-1:0]);
-        xcorr_regs[r][1] <= (real_coeffs[r] > 0 ? samples_regs[r][WIDTH-1:WIDTH/2] : -samples_regs[r][WIDTH-1:WIDTH/2]) +
-                            (imag_coeffs[r] > 0 ? samples_regs[r][WIDTH/2-1:0]     : -samples_regs[r][WIDTH/2-1:0]);
+        xcorr_regs[r][0] <= (real_coeffs[r] > 0 ? sample_regs[r][WIDTH-1:WIDTH/2] : -sample_regs[r][WIDTH-1:WIDTH/2]) -
+                            (imag_coeffs[r] > 0 ? sample_regs[r][WIDTH/2-1:0]     : -sample_regs[r][WIDTH/2-1:0]);
+        xcorr_regs[r][1] <= (real_coeffs[r] > 0 ? sample_regs[r][WIDTH-1:WIDTH/2] : -sample_regs[r][WIDTH-1:WIDTH/2]) +
+                            (imag_coeffs[r] > 0 ? sample_regs[r][WIDTH/2-1:0]     : -sample_regs[r][WIDTH/2-1:0]);
       end
       // Adder tree
       xcorr_sum_regs[0][0] <= xcorr_regs[2*k][0] + xcorr_regs[2*k+1][0];
@@ -92,10 +92,13 @@ module long_preamble_detector #(
   /////////////////////////////////////////////////////////////////////////////
   // Peak Finding State Machine
   /////////////////////////////////////////////////////////////////////////////
-  reg [1:0] state;
-  localparam S_IDLE        = 1'b0;
-  localparam S_FIRST_PEAK  = 1'b1;
-  localparam S_SECOND_PEAK = 1'b1;
+  reg [2:0] state;
+  localparam S_IDLE        = 3'd0;
+  localparam S_FIRST_PEAK  = 3'd1;
+  localparam S_SECOND_PEAK = 3'd2;
+  localparam S_CHECK       = 3'd3;
+  localparam S_SET_TLAST   = 3'd4;
+  localparam S_DELAY       = 3'd5;
 
   // See DELAY_ADJ param
   localparam POS_DELAY_ADJ = DELAY_ADJ > 0 ? DELAY_ADJ : 0;
@@ -117,7 +120,7 @@ module long_preamble_detector #(
           peak_xcorr[1] <= 0;
           if (i_tready & i_tvalid & i_tlast) begin
             cnt   <= -XCORR_DELAY; // Account for delay through cross correlation calc
-            state <= S_FIND_PEAKS;
+            state <= S_FIRST_PEAK;
           end
         end
         S_FIRST_PEAK: begin

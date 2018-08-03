@@ -9,7 +9,7 @@
 module split_stream_fifo
   #(parameter WIDTH=16,
     parameter FIFO_SIZE=5,
-    parameter [32*4-1:0] FIFO_SIZE_VEC={4{FIFO_SIZE[31:0]}}
+    parameter [32*4-1:0] FIFO_SIZE_VEC={4{FIFO_SIZE[31:0]}},
     parameter ACTIVE_MASK=4'b1111)
    (input clk, input reset, input clear,
     input [WIDTH-1:0] i_tdata, input i_tlast, input i_tvalid, output i_tready,

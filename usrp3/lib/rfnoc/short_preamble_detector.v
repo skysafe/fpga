@@ -42,11 +42,11 @@ module short_preamble_detector #(
     .FIFO_SIZE_VEC({0,5,5}))
   inst_axi_sync (
     .clk(clk), .reset(reset), .clear(1'b0),
-    .i_tdata({corr_magphase_tdata, i_power_data, i_samples_tdata}),
+    .i_tdata({corr_magphase_tdata, i_power_tdata, i_samples_tdata}),
     .i_tlast(3'b0),
     .i_tvalid({corr_magphase_tvalid, i_power_tvalid, i_samples_tvalid}),
     .i_tready({corr_magphase_tready, i_power_tready, i_samples_tready}),
-    .o_tdata({corr_phase_tdata, corr_mag_tdata}, power_tdata, samples_tdata}),
+    .o_tdata({{corr_phase_tdata, corr_mag_tdata}, power_tdata, samples_tdata}),
     .o_tlast(),
     // dont_care because all valids are aligned
     .o_tvalid({dont_care[0], dont_care[1], samples_tvalid}),
@@ -62,7 +62,7 @@ module short_preamble_detector #(
   //   D < |P(d)|^2/R(d)^2
   //   D^(1/2) < |P(d)|/R(d)
   //   |P(d)| - D^(1/2)*R(d) > 0 --> |P(d)| - (1 - 1/N)*R(d) > 0
-  localparam THRESHOLD_POW2 = $clog2(1.0/(1.0-THRESHOLD**(0.5)));
+  localparam THRESHOLD_POW2 = $clog2($rtoi(1.0/(1.0-THRESHOLD**(0.5))));
   assign d_metric_approx  = corr_mag_tdata - (power_tdata - (power_tdata >>> THRESHOLD_POW2));
   assign trigger          = (d_metric_approx > 0);
   assign phase            = corr_phase_tdata >>> $clog2(WINDOW_LEN);
@@ -70,7 +70,7 @@ module short_preamble_detector #(
   wire [WIDTH-1:0] samples_reg_tdata;
   wire samples_reg_tvalid, samples_reg_tready;
   axi_fifo_flop #(
-    .WIDTH(1+16+16+WIDTH)
+    .WIDTH(1+16+16+WIDTH))
   axi_fifo_flop (
     .clk(clk), .reset(reset), .clear(1'b0),
     .i_tdata({trigger, d_metric_approx, phase, samples_tdata}),
@@ -114,6 +114,6 @@ module short_preamble_detector #(
     .o1_tdata({o_phase_tdata, unused_samples}), .o1_tlast(o_phase_tlast),
     .o1_tvalid(o_phase_tvalid), .o1_tready(o_phase_tready),
     .o2_tdata(), .o2_tlast(), .o2_tvalid(), .o2_tready(),
-    .o3_tdata(), .o3_tlast(), .o3_tvalid(), .o2_tready());
+    .o3_tdata(), .o3_tlast(), .o3_tvalid(), .o3_tready());
 
 endmodule
