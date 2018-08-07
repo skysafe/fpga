@@ -149,8 +149,8 @@ addsub.vhd \
 dds_freq_tune.v \
 dds_timed.v \
 noc_block_ofdm_sync.v \
-ofdm_sync.v \
-ofdm_framer.v \
-short_preamble_detector.v \
-long_preamble_detector.v \
+ofdm_sync.sv \
+ofdm_framer.sv \
+short_preamble_detector.sv \
+long_preamble_detector.sv \
 ))
