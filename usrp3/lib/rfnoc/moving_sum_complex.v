@@ -24,6 +24,6 @@ module moving_sum_complex #(
     .clk(clk), .reset(reset), .clear(clear),
     .len(len),
     .i_tdata(i_tdata[WIDTH-1:0]), .i_tlast(1'b0), .i_tvalid(i_tvalid), .i_tready(),
-    .o_tdata(o_tdata[WIDTH+$clog2(MAX_LEN+1)-1:0]), .o_tlast(), .o_tvalid(o_tvalid), .o_tready(o_tready));
+    .o_tdata(o_tdata[WIDTH+$clog2(MAX_LEN+1)-1:0]), .o_tlast(), .o_tvalid(), .o_tready(o_tready));
 
 endmodule
