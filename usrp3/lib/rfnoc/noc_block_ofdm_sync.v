@@ -123,13 +123,13 @@ module noc_block_ofdm_sync #(
     .WINDOW_LEN(64),
     .SYMBOL_LEN(64),
     .CYCLIC_PREFIX_LEN(16),
-    .SHORT_PREAMBLE_LEN(160),
-    .MAX_NUM_SYMBOLS(MAX_NUM_SYMBOLS)
-  ) inst_ofdm_sync (
+    .PREAMBLE_LEN(160),
+    .MAX_NUM_SYMBOLS(MAX_NUM_SYMBOLS))
+  inst_ofdm_sync (
     .clk(ce_clk), .reset(ce_rst),
+    .num_symbols(num_symbols), .num_symbols_valid(num_symbols_valid),
     .i_tdata(m_axis_data_tdata), .i_tlast(m_axis_data_tlast), .i_tvalid(m_axis_data_tvalid), .i_tready(m_axis_data_tready),
     .o_tdata(s_axis_data_tdata), .o_tlast(s_axis_data_tlast), .o_tvalid(s_axis_data_tvalid), .o_tready(s_axis_data_tready),
-    .num_symbols(num_symbols), .num_symbols_valid(num_symbols_valid),
-    .sof(sof), .eof());
+    .o_sof(sof), .o_eof());
 
 endmodule

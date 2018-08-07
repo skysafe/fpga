@@ -50,22 +50,18 @@ LIB_IP_DIR = $(BASE_DIR)/../lib/ip
 include $(IP_DIR)/fifo_short_2clk/Makefile.inc
 include $(IP_DIR)/fifo_4k_2clk/Makefile.inc
 include $(LIB_IP_DIR)/axi_fft/Makefile.inc
-include $(LIB_IP_DIR)/complex_to_magphase_int32/Makefile.inc
+include $(LIB_IP_DIR)/complex_to_magphase/Makefile.inc
 include $(LIB_IP_DIR)/complex_multiplier/Makefile.inc
-include $(LIB_IP_DIR)/cordic_rotate_int24_int16/Makefile.inc
-include $(LIB_IP_DIR)/divide_int16/Makefile.inc
-include $(LIB_IP_DIR)/divide_int32/Makefile.inc
+include $(LIB_IP_DIR)/cordic_rotator/Makefile.inc
 include $(LIB_IP_DIR)/divide_int16_int32/Makefile.inc
 
 DESIGN_SRCS += $(abspath \
 $(IP_FIFO_SHORT_2CLK_SRCS) \
 $(IP_FIFO_4K_2CLK_SRCS) \
 $(LIB_IP_AXI_FFT_SRCS) \
-$(LIB_IP_COMPLEX_TO_MAGPHASE_INT32_SRCS) \
+$(LIB_IP_COMPLEX_TO_MAGPHASE_SRCS) \
 $(LIB_IP_COMPLEX_MULTIPLIER_SRCS) \
-$(LIB_IP_CORDIC_ROTATE_INT24_INT16_SRCS) \
-$(LIB_IP_DIVIDE_INT16_SRCS) \
-$(LIB_IP_DIVIDE_INT32_SRCS) \
+$(LIB_IP_CORDIC_ROTATOR_SRCS) \
 $(LIB_IP_DIVIDE_INT16_INT32_SRCS) \
 )
 

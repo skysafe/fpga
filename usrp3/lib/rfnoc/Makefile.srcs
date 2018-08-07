@@ -53,6 +53,9 @@ complex_invert.v \
 periodic_framer.v \
 threshold_scaled.v \
 moving_sum.v \
+moving_sum_complex.v \
+moving_avg.v \
+moving_avg_complex.v \
 peak_finder.v \
 window.v \
 counter.v \
@@ -145,4 +148,9 @@ fir_filter_slice.v \
 addsub.vhd \
 dds_freq_tune.v \
 dds_timed.v \
+noc_block_ofdm_sync.v \
+ofdm_sync.v \
+ofdm_framer.v \
+short_preamble_detector.v \
+long_preamble_detector.v \
 ))

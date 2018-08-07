@@ -9,10 +9,10 @@ module short_preamble_detector #(
   // SNR > 0: 0.5
   // SNR > 3: 0.7
   // SNR > 5: 0.8
-  parameter THRESHOLD       = 0.8
+  parameter THRESHOLD       = 0.7
 )(
   input clk, input reset,
-  input [15:0] i_corr_tdata, input i_corr_tvalid, output i_corr_tready,
+  input [31:0] i_corr_tdata, input i_corr_tvalid, output i_corr_tready,
   input [15:0] i_power_tdata, input i_power_tvalid, output i_power_tready,
   input [WIDTH-1:0] i_samples_tdata, input i_samples_tvalid, output i_samples_tready,
   // o_phase_tlast asserts on phase angle at peak
@@ -26,13 +26,13 @@ module short_preamble_detector #(
   complex_to_magphase inst_complex_to_magphase (
     .aclk(clk), .aresetn(~reset),
     .s_axis_cartesian_tdata({i_corr_tdata[15:0], i_corr_tdata[31:16]}), // Reverse I/Q input to match Xilinx's format
-    .s_axis_cartesian_tlast(1'b0), .s_axis_cartesian_tvalid(i_corr_tvalid[0]), .s_axis_cartesian_tready(i_corr_tready[0]),
+    .s_axis_cartesian_tlast(1'b0), .s_axis_cartesian_tvalid(i_corr_tvalid), .s_axis_cartesian_tready(i_corr_tready),
     .m_axis_dout_tdata(corr_magphase_tdata), // [31:16] phase, [15:0] magnitude
     .m_axis_dout_tlast(), .m_axis_dout_tvalid(corr_magphase_tvalid), .m_axis_dout_tready(corr_magphase_tready));
 
   // Sync streams
-  wire [15:0] corr_phase_tdata, corr_mag_tdata;
-  wire [15:0] power_tdata;
+  wire signed [15:0] corr_phase_tdata, corr_mag_tdata;
+  wire signed [15:0] power_tdata;
   wire [WIDTH-1:0] samples_tdata;
   wire samples_tvalid, samples_tready;
   wire [1:0] dont_care;
@@ -52,7 +52,7 @@ module short_preamble_detector #(
     .o_tvalid({dont_care[0], dont_care[1], samples_tvalid}),
     .o_tready({samples_tready, samples_tready, samples_tready}));
 
-  wire [15:0] d_metric_approx, d_metric_approx_reg;
+  wire signed [15:0] d_metric_approx, d_metric_approx_reg;
   wire [15:0] phase, phase_reg;
   wire trigger, trigger_reg;
 
@@ -64,7 +64,7 @@ module short_preamble_detector #(
   //   |P(d)| - D^(1/2)*R(d) > 0 --> |P(d)| - (1 - 1/N)*R(d) > 0
   localparam THRESHOLD_POW2 = $clog2($rtoi(1.0/(1.0-THRESHOLD**(0.5))));
   assign d_metric_approx  = corr_mag_tdata - (power_tdata - (power_tdata >>> THRESHOLD_POW2));
-  assign trigger          = (d_metric_approx > 0);
+  assign trigger          = (d_metric_approx > 0) & (power_tdata > 32); // Ensure minimum power to prevent false detects from very small signals
   assign phase            = corr_phase_tdata >>> $clog2(WINDOW_LEN);
 
   wire [WIDTH-1:0] samples_reg_tdata;
@@ -81,18 +81,24 @@ module short_preamble_detector #(
   /////////////////////////////////////////////////////////
   // Detect peak via finding the zero crossing
   /////////////////////////////////////////////////////////
-  reg [15:0] prev_d_metric_approx;
+  wire signed [15:0] d_metric_diff;
+  reg signed [15:0] prev_d_metric_approx, prev_d_metric_diff;
 
-  wire zero_crossing = trigger_reg & ((d_metric_approx_reg - prev_d_metric_approx) <= 0);
+  assign d_metric_diff = d_metric_approx_reg - prev_d_metric_approx;
+
+  wire zero_crossing = trigger_reg & samples_reg_tvalid & (d_metric_diff <= 0) & (prev_d_metric_diff > 0);
 
   always @(posedge clk) begin
     if (reset) begin
+      prev_d_metric_diff       <= 16'd0;
       prev_d_metric_approx     <= 16'd0;
     end else begin
       if (samples_reg_tvalid & samples_reg_tready) begin
         if (trigger_reg) begin
+          prev_d_metric_diff   <= d_metric_diff;
           prev_d_metric_approx <= d_metric_approx_reg;
         end else begin
+          prev_d_metric_diff   <= 16'd0;
           prev_d_metric_approx <= 16'd0;
         end
       end
@@ -107,7 +113,7 @@ module short_preamble_detector #(
     .ACTIVE_MASK(4'b0011))
   inst_split_stream_fifo (
     .clk(clk), .reset(reset), .clear(1'b0),
-    .i_tdata({phase_reg, samples_reg_tvalid}), .i_tlast({zero_crossing, zero_crossing}),
+    .i_tdata({phase_reg, samples_reg_tdata}), .i_tlast(zero_crossing),
     .i_tvalid(samples_reg_tvalid), .i_tready(samples_reg_tready),
     .o0_tdata({unused_phase, o_samples_tdata}), .o0_tlast(o_samples_tlast),
     .o0_tvalid(o_samples_tvalid), .o0_tready(o_samples_tready),
