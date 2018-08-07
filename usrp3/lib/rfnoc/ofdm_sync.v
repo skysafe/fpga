@@ -2,7 +2,7 @@
 // Copyright 2018 SkySafe Inc.
 //
 module ofdm_sync #(
-  parameter WINDOW_LEN         = 64,
+  parameter WINDOW_LEN         = 80,
   parameter SYMBOL_LEN         = 64,
   parameter CYCLIC_PREFIX_LEN  = 16,
   parameter PREAMBLE_LEN       = 160,
@@ -15,7 +15,9 @@ module ofdm_sync #(
   output o_sof, output o_eof
 );
 
-  localparam GAIN = 5;
+  // TODO: Implement AGC instead of these fixed gains
+  localparam GAIN = 3;
+  localparam GAIN2 = 0;
 
   wire [31:0] samples_in_tdata[0:3];
   wire [3:0] samples_in_tvalid, samples_in_tready;
@@ -85,16 +87,16 @@ module ofdm_sync #(
     .i_tdata(corr_rnd_tdata), .i_tlast(1'b0), .i_tvalid(corr_rnd_tvalid), .i_tready(corr_rnd_tready),
     .o_tdata(corr_ms_tdata), .o_tlast(), .o_tvalid(corr_ms_tvalid), .o_tready(corr_ms_tready));
 
-  // Moving average to turn correlation plateau into peak and improve detection
-  wire [2*CORR_WIDTH-1:0] corr_ma_tdata;
-  wire corr_ma_tvalid, corr_ma_tready;
-  moving_avg_complex #(
-    .LENGTH(WINDOW_LEN/2),
-    .WIDTH(CORR_WIDTH))
-  inst_moving_avg_corr (
-    .clk(clk), .reset(reset), .clear(1'b0),
+  wire [31:0] corr_ms_rnd_tdata;
+  wire        corr_ms_rnd_tvalid, corr_ms_rnd_tready;
+  axi_round_and_clip_complex #(
+    .WIDTH_IN(CORR_WIDTH),
+    .WIDTH_OUT(16),
+    .CLIP_BITS(GAIN2))
+  inst_axi_round_and_clip_complex_corr_ms (
+    .clk(clk), .reset(reset),
     .i_tdata(corr_ms_tdata), .i_tlast(1'b0), .i_tvalid(corr_ms_tvalid), .i_tready(corr_ms_tready),
-    .o_tdata(corr_ma_tdata), .o_tlast(), .o_tvalid(corr_ma_tvalid), .o_tready(corr_ma_tready));
+    .o_tdata(corr_ms_rnd_tdata), .o_tlast(), .o_tvalid(corr_ms_rnd_tvalid), .o_tready(corr_ms_rnd_tready));
 
   /////////////////////////////////////////////////////////
   // Calculate power, R(d)
@@ -113,7 +115,7 @@ module ofdm_sync #(
   axi_round_and_clip #(
     .WIDTH_IN(32),
     .WIDTH_OUT(16),
-    .CLIP_BITS(GAIN))
+    .CLIP_BITS(GAIN-1))
   inst_axi_round_power (
     .clk(clk), .reset(reset),
     .i_tdata(power_tdata), .i_tlast(1'b0), .i_tvalid(power_tvalid), .i_tready(power_tready),
@@ -121,11 +123,11 @@ module ofdm_sync #(
 
   // Moving sum over two window lengths to prevent false detections at beginning and end of packets
   // This is a difference from original Schmidl Cox algorithm
-  localparam POWER_WIDTH = 16+$clog2(2*WINDOW_LEN+1);
+  localparam POWER_WIDTH = 16+$clog2(WINDOW_LEN+1);
   wire [POWER_WIDTH-1:0] power_ms_tdata;
   wire power_ms_tvalid, power_ms_tready;
   moving_sum #(
-    .MAX_LEN(2*WINDOW_LEN),
+    .MAX_LEN(WINDOW_LEN),
     .WIDTH(16))
   inst_moving_sum_power (
     .clk(clk), .reset(reset), .clear(1'b0),
@@ -133,16 +135,16 @@ module ofdm_sync #(
     .i_tdata(power_rnd_tdata), .i_tlast(1'b0), .i_tvalid(power_rnd_tvalid), .i_tready(power_rnd_tready),
     .o_tdata(power_ms_tdata), .o_tlast(), .o_tvalid(power_ms_tvalid), .o_tready(power_ms_tready));
 
-  // Moving average to improve power estimate
-  wire [POWER_WIDTH-1:0] power_ma_tdata;
-  wire power_ma_tvalid, power_ma_tready;
-  moving_avg #(
-    .LENGTH(WINDOW_LEN),
-    .WIDTH(POWER_WIDTH))
-  inst_moving_avg_power (
-    .clk(clk), .reset(reset), .clear(1'b0),
+  wire [15:0] power_ms_rnd_tdata;
+  wire        power_ms_rnd_tvalid, power_ms_rnd_tready;
+  axi_round_and_clip #(
+    .WIDTH_IN(POWER_WIDTH),
+    .WIDTH_OUT(16),
+    .CLIP_BITS(GAIN2))
+  inst_axi_round_and_clip_power_ms (
+    .clk(clk), .reset(reset),
     .i_tdata(power_ms_tdata), .i_tlast(1'b0), .i_tvalid(power_ms_tvalid), .i_tready(power_ms_tready),
-    .o_tdata(power_ma_tdata), .o_tlast(), .o_tvalid(power_ma_tvalid), .o_tready(power_ma_tready));
+    .o_tdata(power_ms_rnd_tdata), .o_tlast(), .o_tvalid(power_ms_rnd_tvalid), .o_tready(power_ms_rnd_tready));
 
   /////////////////////////////////////////////////////////
   // Short Preamble Peak Detection, Course Frequency Correction
@@ -151,21 +153,16 @@ module ofdm_sync #(
   wire samples_out_tlast, samples_out_tvalid, samples_out_tready;
   wire [15:0] phase_inc_tdata;
   wire phase_inc_tlast, phase_inc_tvalid, phase_inc_tready;
-
-  localparam GAIN2 = 4;
-
-  wire [31:0] corr_ma_slice_tdata = {corr_ma_tdata[2*CORR_WIDTH-1-GAIN2:2*CORR_WIDTH-16-GAIN2],corr_ma_tdata[CORR_WIDTH-1-GAIN2:CORR_WIDTH-16-GAIN2]};
-
   short_preamble_detector #(
     .WIDTH(32),
     .WINDOW_LEN(WINDOW_LEN),
     .THRESHOLD(0.7))
   inst_short_preamble_detector (
     .clk(clk), .reset(reset),
-    .i_corr_tdata(corr_ma_slice_tdata),
-    .i_corr_tvalid(corr_ma_tvalid), .i_corr_tready(corr_ma_tready),
-    .i_power_tdata(power_ma_tdata[POWER_WIDTH-1-GAIN2:POWER_WIDTH-16-GAIN2]),
-    .i_power_tvalid(power_ma_tvalid), .i_power_tready(power_ma_tready),
+    .i_corr_tdata(corr_ms_rnd_tdata),
+    .i_corr_tvalid(corr_ms_rnd_tvalid), .i_corr_tready(corr_ms_rnd_tready),
+    .i_power_tdata(power_ms_rnd_tdata),
+    .i_power_tvalid(power_ms_rnd_tvalid), .i_power_tready(power_ms_rnd_tready),
     .i_samples_tdata(samples_in_tdata[3]),
     .i_samples_tvalid(samples_in_tvalid[3]), .i_samples_tready(samples_in_tready[3]),
     .o_phase_tdata(phase_inc_tdata), .o_phase_tlast(phase_inc_tlast),
@@ -176,7 +173,7 @@ module ofdm_sync #(
   wire [15:0] phase_accum_tdata;
   wire phase_accum_tvalid, phase_accum_tready;
   phase_accum #(
-    .WIDTH_ACCUM(16+$clog2(2*WINDOW_LEN)), // Divide by 2*WINDOW_LEN to get per sample phase offset
+    .WIDTH_ACCUM(16),
     .WIDTH_IN(16),
     .WIDTH_OUT(16))
   inst_phase_accum (

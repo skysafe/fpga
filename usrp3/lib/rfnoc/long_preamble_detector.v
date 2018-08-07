@@ -115,7 +115,7 @@ module long_preamble_detector #(
 
   reg [XCORR_WIDTH-1:0] peak_xcorr[0:1];
   // +1 ensures long enough counter for extra cycles in state machine
-  reg [$clog2(PREAMBLE_LEN+SEARCH_PAD+POS_DELAY_ADJ):0] offset_xcorr[0:1], cnt, offset;
+  reg [$clog2(PREAMBLE_LEN+SEARCH_PAD+POS_DELAY_ADJ):0] peak_index[0:1], cnt, offset;
 
   always @(posedge clk) begin
     if (reset) begin
@@ -134,7 +134,7 @@ module long_preamble_detector #(
           if (i_tready & i_tvalid) begin
             if (xcorr_abs >= peak_xcorr[0]) begin
               peak_xcorr[0]   <= xcorr_abs;
-              offset_xcorr[0] <= cnt;
+              peak_index[0]   <= cnt;
             end
             cnt <= cnt + 1;
             if (cnt == CORR_LEN+SEARCH_PAD+XCORR_DELAY-1) begin
@@ -146,7 +146,7 @@ module long_preamble_detector #(
           if (i_tready & i_tvalid) begin
             if (xcorr_abs >= peak_xcorr[1]) begin
               peak_xcorr[1]   <= xcorr_abs;
-              offset_xcorr[1] <= cnt;
+              peak_index[1]   <= cnt;
             end
             cnt <= cnt + 1;
             if (cnt == PREAMBLE_LEN+SEARCH_PAD+XCORR_DELAY-1) begin
@@ -159,9 +159,9 @@ module long_preamble_detector #(
             cnt <= cnt + 1;
           end
           // Check distance between peaks
-          if (offset_xcorr[1] - offset_xcorr[0] == PEAK_DELTA) begin
+          if (peak_index[1] - peak_index[0] == PEAK_DELTA) begin
             // Extra -1 to account for transition to S_SET_TLAST state
-            offset <= (DELAY - NEG_DELAY_ADJ) - (PREAMBLE_LEN - offset_xcorr[1]) - XCORR_DELAY + POS_DELAY_ADJ;
+            offset <= (DELAY - NEG_DELAY_ADJ) - (PREAMBLE_LEN - peak_index[1]) - XCORR_DELAY + POS_DELAY_ADJ;
             state  <= S_DELAY;
           end else begin
             state <= S_IDLE; // Abort!

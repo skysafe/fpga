@@ -67,7 +67,7 @@ module noc_block_ofdm_sync #(
   wire         s_axis_data_tlast;
   wire         s_axis_data_tvalid;
   wire         s_axis_data_tready;
-  
+
   wire sof;
 
   axi_wrapper #(
@@ -108,7 +108,7 @@ module noc_block_ofdm_sync #(
   ////////////////////////////////////////////////////////////
   localparam [31:0] SR_NUM_SYMBOLS  = 129;
 
-  localparam [31:0] MAX_NUM_SYMBOLS = 512;
+  localparam [31:0] MAX_NUM_SYMBOLS = 10;
 
   // Settings Registers
   wire [$clog2(MAX_NUM_SYMBOLS+1)-1:0] num_symbols;
@@ -120,7 +120,7 @@ module noc_block_ofdm_sync #(
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(num_symbols), .changed(num_symbols_valid));
 
   ofdm_sync #(
-    .WINDOW_LEN(64),
+    .WINDOW_LEN(80),
     .SYMBOL_LEN(64),
     .CYCLIC_PREFIX_LEN(16),
     .PREAMBLE_LEN(160),

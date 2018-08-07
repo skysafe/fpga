@@ -76,15 +76,15 @@ module ofdm_framer #(
             end else begin
               o_sof <= 1'b0;
               cnt   <= 0;
-              if (symbol_cnt < LONG_PREAMBLE_NUM_SYMBOLS-1) begin
-                symbol_cnt <= 0;
+              if (symbol_cnt < LONG_PREAMBLE_NUM_SYMBOLS) begin
+                symbol_cnt <= symbol_cnt + 1;
+              end else begin
+                symbol_cnt <= 1;
                 if (CYCLIC_PREFIX_LEN > 0) begin
                   state     <= S_CYCLIC_PREFIX;
                 end else begin
                   state     <= S_SYMBOL;
                 end
-              end else begin
-                symbol_cnt <= symbol_cnt + 1;
               end
             end
           end
@@ -110,11 +110,9 @@ module ofdm_framer #(
               cnt <= 0;
               if (num_symbols_set) begin
                 if (symbol_cnt >= num_symbols) begin
-                  symbol_cnt <= 0;
                   state      <= S_IDLE;
                 end
               end else if (symbol_cnt >= MAX_NUM_SYMBOLS) begin
-                symbol_cnt <= 0;
                 state      <= S_IDLE;
               end else begin
                 symbol_cnt <= symbol_cnt + 1;
