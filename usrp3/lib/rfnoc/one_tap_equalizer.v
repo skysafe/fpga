@@ -88,7 +88,7 @@ module one_tap_equalizer (
 
   // Split incoming stream in preamble and data
   split_stream #(
-    .WIDTH(64),
+    .WIDTH(32),
     .ACTIVE_MASK(4'b0011))
   split_stream_inst (
     .clk(clk_i),
