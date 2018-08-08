@@ -40,7 +40,7 @@ def find(include_dir):
         os.path.join('include', 'uhd', 'rfnoc', 'blocks', '*.xml'),
         os.path.join('host', 'include', 'uhd', 'rfnoc', 'blocks', '*.xml'))
 
-    if include_dir is None:
+    if include_dir is None or len(include_dir) == 0:
         return files
 
     # Search user provided paths
