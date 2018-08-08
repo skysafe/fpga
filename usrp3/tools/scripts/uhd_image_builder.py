@@ -47,11 +47,11 @@ def setup_parser():
         "-I", "--oot-include-dir",
         help="Path directory of the RFNoC Out-of-Tree module",
         nargs='+',
-        default=None)
+        default="")
     parser.add_argument(
         "--uhd-include-dir",
         help="Path directory of UHD",
-        default=None)
+        default="")
     parser.add_argument(
         "-y", "--yml",
         help="YML file definition of onboard blocks\
@@ -406,6 +406,8 @@ def get_blocks(include_dirs, find_default=False):
     default directories for nocscript files.
     NOTE: Also used by uhd_image_builder_gui
     """
+    if (include_dirs is None or len(include_dirs) == 0) and (find_default is False):
+        return {}
     nocscript_files = nocscript_parser.find(include_dirs)
     if find_default:
         nocscript_files += nocscript_parser.find_default()
@@ -419,7 +421,7 @@ def main():
     args = setup_parser().parse_args()
     device = args.device.lower()
     # Load nocscript
-    if args.uhd_include_dir is None:
+    if args.uhd_include_dir is "":
         available_blocks = get_blocks(args.oot_include_dir, find_default=True)
     else:
         available_blocks = get_blocks(args.oot_include_dir + args.uhd_include_dir)
