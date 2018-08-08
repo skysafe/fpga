@@ -625,7 +625,8 @@ class MainWindow(QtWidgets.QWidget):
             "[Generating BitStream]: The FPGA is currently being generated" + \
             " with the blocks of the current design. See the terminal window" + \
             " for further compilation details")
-        os.system(command)
+        path = os.path.dirname(os.path.realpath(__file__))
+        os.system(os.path.join(path, command))
         self.lock.release()
         self.gen_bit_btn.setEnabled(True)
         self.generating_bitstream.setText("")
