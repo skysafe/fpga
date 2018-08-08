@@ -179,8 +179,13 @@ class dram():
             vlen = int(dram_args.get('vlen', 1))
         except ValueError:
             vlen_param = dram_args['vlen']
-            vlen = noc_block_inst.get_block_arg(vlen_param)
-            assert vlen is not None, 'Could not resolve parameter {0} for vlen'.format(vlen_param)
+            params = noc_block_inst.get_block_arg(('io', 'parameter'))
+            for d in params:
+                if d['name'] == vlen_param:
+                    vlen = int(d['value'])
+                    break
+            else:
+                assert vlen is not None, 'Could not resolve parameter {0} for vlen'.format(vlen_param)
         # Create a separate bus for each DRAM port requested
         for i in range(vlen):
             if self.ports_in_use > self.max_ports:
