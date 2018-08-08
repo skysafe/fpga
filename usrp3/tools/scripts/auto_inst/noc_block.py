@@ -134,10 +134,10 @@ class noc_block():
         block_arg = self.block_args
         if isinstance(name, list) or isinstance(name, tuple):
             for _name in name:
-                block_arg = block_arg[_name]
+                block_arg = block_arg.get(_name, None)
             return block_arg
         else:
-            return self.block_args[name]
+            return self.block_args.get(name, None)
 
     def get_block_args(self):
         return self.block_args
