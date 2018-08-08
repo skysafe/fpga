@@ -76,7 +76,6 @@ module noc_block_file_source #(
   localparam BASE        = 128;
 
   file_source #(
-    .SR_NEXT_DST(BASE),
     .SR_PKT_LENGTH(BASE+1),
     .SR_RATE(BASE+2),
     .SR_SEND_TIME(BASE+3),
