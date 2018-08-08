@@ -8,19 +8,19 @@ close all;
 %% User variables
 gap                     = 300;   % Number of zero samples between packets
 phase_offset            = pi/7;  % Phase offset
-freq_offset_ppm         = -20;   % TCXO frequency offset in parts per million, typical value would be +/-20
-gain                    = 0;     % dB
-snr                     = 30;    % dB
-D_threshold             = 0.8;   % Note: This value is later quantized to the nearest power of two of 1/sqrt(D_threshold)
+freq_offset_ppm         = -10;   % TCXO frequency offset in parts per million, typical value would be +/-20
+gain                    = 0;     % dB, >10 results in significant clipping when converting to sc16
+snr                     = 10;    % dB
+D_threshold             = 0.7;   % Note: This value is later quantized to the nearest power of two of 1/sqrt(D_threshold)
 data_symbols_per_packet = 200;   % Number of symbols per packet (excluding preamble)
-num_packets             = 2;     % Number of packets to generate
+num_packets             = 10;    % Number of packets to generate
 
 %% Simulation variables (generally should not need to touch these)
 tx_freq         = 5.3e9;
 sample_rate     = 200e6;
 cp_length       = 16;
 fft_length      = 64;
-window_length   = 64;
+window_length   = 80;
 cordic_bitwidth = 16;
 cordic_bitwidth_adj = cordic_bitwidth-3; % Lose 3 bits due to Xilinx's CORDIC scaled radians format
 
@@ -69,18 +69,17 @@ test_data_n = awgn(test_data_freq_offset, snr, 'measured');
 test_data_n = test_data_n  .* 10^(gain/20);
 
 %% Schmidl Cox
-[D, corr, power, phase, trigger] = schmidl_cox(test_data_n , window_length, true);
+[D, corr, power, phase, trigger] = schmidl_cox(test_data_n , window_length, false);
 % Find peak via differentiation
 D_thresh_quant = ceil(log2(1/(1-sqrt(D_threshold))));
 D_approx = (abs(corr) - (power - (1/D_thresh_quant)*power));
-D_approx = (D_approx > 0).*D_approx;
-D_approx_diff = D_approx(2:end) - D_approx(1:end-1);
+
+% Find peak
 D_max = 0;
-% Find first peak
-for i=2:length(D_approx_diff)
-    if D_approx_diff(i) < 0 && D_approx_diff(i-1) > 0
-        D_max = D(i);
-        peak_index = i;
+for i=2:length(D_approx)
+    if (D_approx(i) > 0)
+        [D_max, peak_index] = max(D_approx(i:i+window_length));
+        peak_index = peak_index + i-1; % Peak is relative to i
         break;
     end
 end
@@ -124,7 +123,7 @@ lp_xcorr = filter(coeff_quant, 1, packet_post_sp);  % Complex in, complex coeffi
 lp_xcorr_abs = abs(lp_xcorr);
 [lp_xcorr_abs_sorted, lp_xcorr_abs_sorted_indexs] = sort(lp_xcorr_abs(1:160));
 lp_xcorr_peak_indexes = sort(lp_xcorr_abs_sorted_indexs(end-1:end));  % grab two largest values, sort to make sure earlier index is first
-if (lp_xcorr_peak_indexes(2) - lp_xcorr_peak_indexes(1)) ~= window_length
+if (lp_xcorr_peak_indexes(2) - lp_xcorr_peak_indexes(1)) ~= fft_length
   fprintf("ERROR: Did not find long preamble! Peak separation incorrect!\n")
   return
 else
@@ -143,26 +142,26 @@ packet_eq_f(2,:) = equalize_decision_directed(packet_lp_aligned, fft_length, cp_
 %% Plot
 figure();
 subplot(1,2,1);
-plot(real(packet_eq_f(2,1:200*64)));
+plot(real(packet_eq_f(2,1:data_symbols_per_packet*fft_length)));
 subplot(1,2,2);
 hold on;
 grid on;
-plot(packet_eq_f(1,2*64:200*64),'g.');
-plot(packet_eq_f(2,2*64:200*64),'b.');
+plot(packet_eq_f(1,2*64:data_symbols_per_packet*fft_length),'g.');
+plot(packet_eq_f(2,2*64:data_symbols_per_packet*fft_length),'b.');
 plot(sqrt(2)/2.*[1+j, 1-j, -1+j, -1-j],'r*');
 axis([-2 2 -2 2]);
 
 
 %% Write to disk
-% Convert to sc16
+% Convert to sc16, Note: int16() clips
 test_data_sc16 = zeros(1,2*length(test_data_n ));
-test_data_sc16(1:2:end-1) = int16((2^15).*real(test_data_n ));
-test_data_sc16(2:2:end) = int16((2^15).*imag(test_data_n ));
+test_data_sc16(1:2:end-1) = int16((2^15).*real(test_data_n));
+test_data_sc16(2:2:end) = int16((2^15).*imag(test_data_n));
 
 % Complex float
-test_data_cplx_float = zeros(1,2*length(test_data_n ));
-test_data_cplx_float(1:2:end-1) = real(test_data_n );
-test_data_cplx_float(2:2:end) = imag(test_data_n ); 
+test_data_cplx_float = zeros(1,2*length(test_data_n));
+test_data_cplx_float(1:2:end-1) = real(test_data_n);
+test_data_cplx_float(2:2:end) = imag(test_data_n); 
 
 fileId = fopen('test-sc16.bin', 'w');
 fwrite(fileId, test_data_sc16, 'int16');
