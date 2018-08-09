@@ -21,7 +21,6 @@ module noc_block_ofdm_tb();
   `RFNOC_ADD_BLOCK(noc_block_file_source,0);
   defparam noc_block_file_source.FILENAME = "../../noc_block_schmidl_cox_tb/octave-sym/test-sc16.bin";
   defparam noc_block_file_source.FILE_LENGTH = 4*2**16;
-  defparam noc_block_file_source.file_source.DEFAULT_SWAP_SAMPLES = 1;
   `RFNOC_ADD_BLOCK(noc_block_ofdm_sync,1);
   `RFNOC_ADD_BLOCK(noc_block_fft,2);
   defparam noc_block_fft.EN_MAGNITUDE_OUT        = 0;
