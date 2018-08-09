@@ -106,18 +106,28 @@ module noc_block_ofdm_sync #(
   // User code
   //
   ////////////////////////////////////////////////////////////
-  localparam [31:0] SR_NUM_SYMBOLS  = 129;
+  localparam [31:0] SR_NUM_SYMBOLS        = 129;
+  localparam [31:0] SR_FORCE_NUM_SYMBOLS  = 130;
 
-  localparam [31:0] MAX_NUM_SYMBOLS = 10;
+  localparam [31:0] MAX_NUM_SYMBOLS = 200;
 
   // Settings Registers
   wire [$clog2(MAX_NUM_SYMBOLS+1)-1:0] num_symbols;
   wire num_symbols_valid;
   setting_reg #(
-    .my_addr(SR_NUM_SYMBOLS), .awidth(8), .width($clog2(MAX_NUM_SYMBOLS+1)))
-  sr_fft_reset (
+  .my_addr(SR_NUM_SYMBOLS), .awidth(8), .width($clog2(MAX_NUM_SYMBOLS+1)), .at_reset(MAX_NUM_SYMBOLS))
+  sr_num_symbols (
     .clk(ce_clk), .rst(ce_rst),
     .strobe(set_stb), .addr(set_addr), .in(set_data), .out(num_symbols), .changed(num_symbols_valid));
+
+  // Useful when the packet length is known and does not change.
+  // Keeps num_symbols_valid always asserted so num_symbols is immediately loaded for every packet.
+  wire force_num_symbols_valid;
+  setting_reg #(
+    .my_addr(SR_FORCE_NUM_SYMBOLS), .awidth(8), .width(1), .at_reset(0))
+  sr_force_num_symbols (
+    .clk(ce_clk), .rst(ce_rst),
+    .strobe(set_stb), .addr(set_addr), .in(set_data), .out(force_num_symbols_valid), .changed());
 
   ofdm_sync #(
     .WINDOW_LEN(80),
@@ -126,8 +136,8 @@ module noc_block_ofdm_sync #(
     .PREAMBLE_LEN(160),
     .MAX_NUM_SYMBOLS(MAX_NUM_SYMBOLS))
   inst_ofdm_sync (
-    .clk(ce_clk), .reset(ce_rst),
-    .num_symbols(num_symbols), .num_symbols_valid(num_symbols_valid),
+    .clk(ce_clk), .reset(ce_rst | clear_tx_seqnum),
+    .num_symbols(num_symbols), .num_symbols_valid(num_symbols_valid | force_num_symbols_valid),
     .i_tdata(m_axis_data_tdata), .i_tlast(m_axis_data_tlast), .i_tvalid(m_axis_data_tvalid), .i_tready(m_axis_data_tready),
     .o_tdata(s_axis_data_tdata), .o_tlast(s_axis_data_tlast), .o_tvalid(s_axis_data_tvalid), .o_tready(s_axis_data_tready),
     .o_sof(sof), .o_eof());
