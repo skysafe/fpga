@@ -42,7 +42,7 @@ module noc_block_ofdm_tb();
   localparam [15:0] FFT_SIZE         = OFDM_SYMBOL_SIZE;
   localparam [31:0] FFT_SIZE_LOG2    = $clog2(FFT_SIZE);
   localparam [31:0] FFT_DIRECTION    = noc_block_fft.FFT_FORWARD; // Forward
-  localparam [31:0] FFT_SCALING      = 12'b010101010101;          // Aggressive scaling
+  localparam [31:0] FFT_SCALING      = 12'b000001010101;          // Moderate scaling
   localparam [31:0] FFT_SHIFT_CONFIG = 1;                         // Reverse FFT shift, output negative frequencies first
 
   localparam MTU                     = 1440/8;                    // About the size of a 1500 byte Ethernet packet in 8 byte words
