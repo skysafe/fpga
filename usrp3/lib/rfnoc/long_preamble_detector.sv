@@ -161,7 +161,7 @@ module long_preamble_detector #(
           // Check distance between peaks
           if (peak_index[1] - peak_index[0] == PEAK_DELTA) begin
             // Extra -1 to account for transition to S_SET_TLAST state
-            offset <= (DELAY - NEG_DELAY_ADJ) - (PREAMBLE_LEN - peak_index[1]) - XCORR_DELAY + POS_DELAY_ADJ;
+            offset <= (DELAY - NEG_DELAY_ADJ) - (PREAMBLE_LEN - peak_index[1]) - XCORR_DELAY + POS_DELAY_ADJ - 1;
             state  <= S_DELAY;
           end else begin
             state <= S_IDLE; // Abort!
