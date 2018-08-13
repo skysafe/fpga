@@ -46,8 +46,8 @@ module axi_sync #(
   generate
     for (i = 0; i < SIZE; i = i + 1) begin
       axi_fifo #(
-        .WIDTH(msb(i,WIDTH_VEC)-msb(i-1,WIDTH_VEC)+1),
-        .SIZE(msb(i,FIFO_SIZE_VEC)-msb(i-1,FIFO_SIZE_VEC)+1))
+        .WIDTH(WIDTH_VEC[32*(i+1)-1:32*i]),
+        .SIZE(FIFO_SIZE_VEC[32*(i+1)-1:32*i]))
       axi_fifo (
         .clk(clk), .reset(reset), .clear(clear),
         .i_tdata({i_tlast[i],i_tdata[msb(i,WIDTH_VEC)-1:msb(i-1,WIDTH_VEC)]}),
