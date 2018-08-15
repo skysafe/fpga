@@ -7,7 +7,7 @@ module long_preamble_detector #(
   parameter PREAMBLE_LEN  = 160,
   parameter SEARCH_PAD    = 32,  // Extra samples to search due to short preamble location uncertainty & cyclic prefix
   parameter CORR_LEN      = 80,
-  parameter [32*2*CORR_LEN-1:0] CORR_COEFFS = 0,
+  parameter [2*2*CORR_LEN-1:0] CORR_COEFFS = 0,
   // Used to adjust when o_tlast is asserted. Examples:
   // - Set to 0, o_tlast marks start of long preamble
   // - Set to PREAMBLE_LEN, o_tlast marks end of long preamble
@@ -16,83 +16,94 @@ module long_preamble_detector #(
 )(
   input clk, input reset,
   input [WIDTH-1:0] i_tdata, input i_tlast, input i_tvalid, output i_tready,
-  output [WIDTH-1:0] o_tdata, output o_tlast, output o_tvalid, input o_tready
+  output [WIDTH-1:0] o_tdata, output o_tlast, output o_tvalid, input o_tready,
+  output reg [47:0] total_detect, output reg [47:0] false_detect
 );
 
-  wire signed [31:0] real_coeffs[0:CORR_LEN-1];
-  wire signed [31:0] imag_coeffs[0:CORR_LEN-1];
-
-  genvar i;
-  generate
-    for (i = 0; i < CORR_LEN; i = i + 1) begin
-      assign real_coeffs[CORR_LEN-i-1] = CORR_COEFFS[64*i+63:64*i+32];
-      assign imag_coeffs[CORR_LEN-i-1] = CORR_COEFFS[64*i+31:64*i];
-    end
-  endgenerate
-
   /////////////////////////////////////////////////////////////////////////////
-  // Cross correlation
+  // Calculate absolute value of cross correlation
   /////////////////////////////////////////////////////////////////////////////
   localparam NUM_STAGES  = $clog2(CORR_LEN)+1;
   localparam XCORR_DELAY = NUM_STAGES+2;
-  localparam XCORR_WIDTH = WIDTH/2+NUM_STAGES+1;
-  reg signed [WIDTH-1:0] sample_regs[0:CORR_LEN-1];
-  reg signed [XCORR_WIDTH-1:0] xcorr_sum_regs[0:NUM_STAGES-1][0:CORR_LEN-1][0:1]; // Real & imag
-  reg [XCORR_WIDTH-1:0] xcorr_abs;
+  localparam XCORR_WIDTH = NUM_STAGES+2;
 
-  wire signed [XCORR_WIDTH-1:0] max, min, abs_real, abs_imag;
-  assign abs_real = xcorr_sum_regs[NUM_STAGES-1][0][0] > 0 ?  xcorr_sum_regs[NUM_STAGES-1][0][0] :
-                                                             -xcorr_sum_regs[NUM_STAGES-1][0][0];
-  assign abs_imag = xcorr_sum_regs[NUM_STAGES-1][0][1] > 0 ?  xcorr_sum_regs[NUM_STAGES-1][0][1] :
-                                                             -xcorr_sum_regs[NUM_STAGES-1][0][1];
-  assign max      = abs_real > abs_imag ? abs_real : abs_imag;
-  assign min      = abs_real > abs_imag ? abs_imag : abs_real;
+  wire real_coeffs[0:CORR_LEN-1];
+  wire imag_coeffs[0:CORR_LEN-1];
+  reg samples_real[0:CORR_LEN-1];
+  reg samples_imag[0:CORR_LEN-1];
+  wire signed [2:0] ac[0:CORR_LEN-1], bd[0:CORR_LEN-1], ad[0:CORR_LEN-1], bc[0:CORR_LEN-1];
+  reg signed [XCORR_WIDTH-1:0] xcorr_sum_real[0:NUM_STAGES-1][0:CORR_LEN-1];
+  reg signed [XCORR_WIDTH-1:0] xcorr_sum_imag[0:NUM_STAGES-1][0:CORR_LEN-1];
+  wire unsigned [XCORR_WIDTH-1:0] max, min, abs_real, abs_imag;
+  reg unsigned [XCORR_WIDTH:0] xcorr_abs;
 
-  integer r, x, n, k;
-
-  initial begin
-    for (n = 0; n < NUM_STAGES; n = n + 1) begin
-      for (k = 0; k < CORR_LEN; k = k + 1) begin
-        xcorr_sum_regs[n][k][0] <= 0;
-        xcorr_sum_regs[n][k][1] <= 0;
+  genvar i, n;
+  generate
+    for (i = 0; i < CORR_LEN; i = i + 1) begin
+      // 1-bit coefficients
+      assign real_coeffs[CORR_LEN-i-1] = CORR_COEFFS[2*i+1];
+      assign imag_coeffs[CORR_LEN-i-1] = CORR_COEFFS[2*i];
+      // 1-bit samples
+      always @(posedge clk) begin
+        if (reset) begin
+          samples_real[i] <= 0;
+          samples_imag[i] <= 0;
+        end else if (i_tvalid & i_tready) begin
+          if (i == 0) begin
+            samples_real[0] <= i_tdata[WIDTH-1];
+            samples_imag[0] <= i_tdata[WIDTH/2-1];
+          end else begin
+            samples_real[i] <= samples_real[i-1];
+            samples_imag[i] <= samples_imag[i-1];
+          end
+        end
+      end
+      // 1-bit complex mult
+      // (a + bj)*(c + dj) = (ac - bd) + j(ad + bc)
+      assign ac[i] = (real_coeffs[i] ^ samples_real[i]) ? -2'sd1 : 2'sd1;
+      assign bd[i] = (imag_coeffs[i] ^ samples_imag[i]) ? -2'sd1 : 2'sd1;
+      assign ad[i] = (real_coeffs[i] ^ samples_imag[i]) ? -2'sd1 : 2'sd1;
+      assign bc[i] = (imag_coeffs[i] ^ samples_real[i]) ? -2'sd1 : 2'sd1;
+      always @(posedge clk) begin
+        if (i_tvalid & i_tready) begin
+          xcorr_sum_real[0][i][2:0] <= $signed(ac[i] - bd[i]);
+          xcorr_sum_imag[0][i][2:0] <= $signed(ad[i] + bc[i]);
+        end
       end
     end
-  end
+  endgenerate
+  generate
+    // Sum with an adder tree
+    for (n = 0; n < NUM_STAGES; n = n + 1) begin
+      for (i = 0; i < CORR_LEN; i = i + 1) begin
+        initial begin
+          xcorr_sum_real[n][i] <= 0;
+          xcorr_sum_imag[n][i] <= 0;
+        end
+        // Vivado synth needs some help with optimization, only add necessary terms and bits.
+        always @(posedge clk) begin
+          if (i_tready & i_tvalid) begin
+            if (i < (CORR_LEN/2**(n+1) + (CORR_LEN % 2**(n+1) != 0))) begin
+              xcorr_sum_real[n+1][i][n+3:0] <= $signed(xcorr_sum_real[n][2*i][n+2:0] + xcorr_sum_real[n][2*i+1][n+2:0]);
+              xcorr_sum_imag[n+1][i][n+3:0] <= $signed(xcorr_sum_imag[n][2*i][n+2:0] + xcorr_sum_imag[n][2*i+1][n+2:0]);
+            end
+          end
+        end
+      end
+    end
+  endgenerate
 
+  // Magnitude Approx
+  // Mag ~= max(|I|, |Q|) + 1/4 * min(|I|, |Q|)
+  assign abs_real = xcorr_sum_real[NUM_STAGES-1][0] > 0 ? $unsigned( xcorr_sum_real[NUM_STAGES-1][0]) :
+                                                          $unsigned(-xcorr_sum_real[NUM_STAGES-1][0]);
+  assign abs_imag = xcorr_sum_imag[NUM_STAGES-1][0] > 0 ? $unsigned( xcorr_sum_imag[NUM_STAGES-1][0]) :
+                                                          $unsigned(-xcorr_sum_imag[NUM_STAGES-1][0]);
+  assign max      = abs_real > abs_imag ? abs_real : abs_imag;
+  assign min      = abs_real > abs_imag ? abs_imag : abs_real;
   always @(posedge clk) begin
-    if (reset) begin
-      for (r = 0; r < CORR_LEN; r = r + 1) begin
-        sample_regs[r] <= 0;
-      end
-    end else begin
-    if (i_tvalid & i_tready) begin
-      // Register samples
-      for (r = 0; r < CORR_LEN; r = r + 1) begin
-        if (r == 0) begin
-          sample_regs[0] <= i_tdata;
-        end else begin
-          sample_regs[r] <= sample_regs[r-1];
-        end
-      end
-      // Apply coefficients
-      // (a + bj)*(c + dj) = (ac - bd) + j(ad + bc) where a = +/-1 & b = +/-1
-      for (x = 0; x < CORR_LEN; x = x + 1) begin
-        xcorr_sum_regs[0][x][0] <= (real_coeffs[x] > 0 ? sample_regs[x][WIDTH-1:WIDTH/2] : -sample_regs[x][WIDTH-1:WIDTH/2]) -
-                                   (imag_coeffs[x] > 0 ? sample_regs[x][WIDTH/2-1:0]     : -sample_regs[x][WIDTH/2-1:0]);
-        xcorr_sum_regs[0][x][1] <= (imag_coeffs[x] > 0 ? sample_regs[x][WIDTH-1:WIDTH/2] : -sample_regs[x][WIDTH-1:WIDTH/2]) +
-                                   (real_coeffs[x] > 0 ? sample_regs[x][WIDTH/2-1:0]     : -sample_regs[x][WIDTH/2-1:0]);
-      end
-      // Adder tree
-      for (n = 0; n < NUM_STAGES; n = n + 1) begin
-        for (k = 0; k < $rtoi($ceil(CORR_LEN/2.0**(n+1))); k = k + 1) begin
-          xcorr_sum_regs[n+1][k][0] <= xcorr_sum_regs[n][2*k][0] + xcorr_sum_regs[n][2*k+1][0];
-          xcorr_sum_regs[n+1][k][1] <= xcorr_sum_regs[n][2*k][1] + xcorr_sum_regs[n][2*k+1][1];
-        end
-      end
-      // Magnitude Approx
-      // Mag ~= max(|I|, |Q|) + 1/4 * min(|I|, |Q|)
+    if (i_tready & i_tvalid) begin
       xcorr_abs <= max + (min >> 2);
-      end 
     end
   end
 
@@ -119,7 +130,9 @@ module long_preamble_detector #(
 
   always @(posedge clk) begin
     if (reset) begin
-      state <= S_IDLE;
+      total_detect <= 0;
+      false_detect <= 0;
+      state        <= S_IDLE;
     end else begin
       case (state)
         S_IDLE: begin
@@ -155,16 +168,18 @@ module long_preamble_detector #(
           end
         end
         S_CHECK: begin
+          total_detect   <= total_detect + 1;
           if (i_tready & i_tvalid) begin
             cnt <= cnt + 1;
           end
           // Check distance between peaks
           if (peak_index[1] - peak_index[0] == PEAK_DELTA) begin
             // Extra -1 to account for transition to S_SET_TLAST state
-            offset <= (DELAY - NEG_DELAY_ADJ) - (PREAMBLE_LEN - peak_index[1]) - XCORR_DELAY + POS_DELAY_ADJ - 1;
-            state  <= S_DELAY;
+            offset       <= (DELAY - NEG_DELAY_ADJ) - (PREAMBLE_LEN - peak_index[1]) - XCORR_DELAY + POS_DELAY_ADJ - 1;
+            state        <= S_DELAY;
           end else begin
-            state <= S_IDLE; // Abort!
+            false_detect <= false_detect + 1;
+            state        <= S_IDLE; // Abort!
           end
         end
         S_DELAY: begin
