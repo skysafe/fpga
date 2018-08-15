@@ -4,12 +4,13 @@
 module short_preamble_detector #(
   parameter WIDTH           = 32,
   parameter WINDOW_LEN      = 80,
-  // D Metric threshold, (0.25, 1.0)
-  // Approximate detection ranges:
-  // SNR > 0: 0.5
-  // SNR > 3: 0.7
-  // SNR > 5: 0.8
-  parameter THRESHOLD       = 0.7,
+  // Approximate D Metric threshold
+  // Conversion: D = (1 - 1/(2**THRESHOLD))^2
+  // 2: D ~= 0.56
+  // 3: D ~= 0.77
+  // 4: D ~= 0.88
+  // 5: D ~= 0.94
+  parameter THRESHOLD       = 4,
   // Divide by 80 approximation constants
   parameter DIV_A           = 6,
   parameter DIV_B           = 8,
@@ -65,13 +66,13 @@ module short_preamble_detector #(
   // Derivation:
   //   D < |P(d)|^2/R(d)^2
   //   D^(1/2) < |P(d)|/R(d)
-  //   |P(d)| - D^(1/2)*R(d) > 0 --> |P(d)| - (1 - 1/N)*R(d) > 0
-  localparam THRESHOLD_POW2 = $clog2($rtoi(1.0/(1.0-THRESHOLD**(0.5))));
-
-  wire signed [15:0] d_metric_approx, d_metric_approx_reg;
+  //   |P(d)| - D^(1/2)*R(d) > 0
+  //   |P(d)| - (1 - 1/2**THRESHOLD)*R(d) > 0
+  wire signed [15:0] d_metric_approx;
+  wire signed [15:0] d_metric_approx_reg;
   wire signed [15:0] phase, phase_reg;
 
-  assign d_metric_approx  = corr_mag_tdata - (power_tdata - (power_tdata >>> THRESHOLD_POW2));
+  assign d_metric_approx  = corr_mag_tdata - (power_tdata - (power_tdata >>> THRESHOLD));
   generate
     if (2**$clog2(WINDOW_LEN) == WINDOW_LEN) begin
       assign phase        = corr_phase_tdata >>> $clog2(WINDOW_LEN);

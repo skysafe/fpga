@@ -156,7 +156,7 @@ module ofdm_sync #(
   short_preamble_detector #(
     .WIDTH(32),
     .WINDOW_LEN(WINDOW_LEN),
-    .THRESHOLD(0.7))
+    .THRESHOLD(4)) // D > 0.88
   inst_short_preamble_detector (
     .clk(clk), .reset(reset),
     .i_corr_tdata(corr_ms_rnd_tdata),
