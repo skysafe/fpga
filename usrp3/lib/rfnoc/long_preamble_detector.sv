@@ -32,17 +32,18 @@ module long_preamble_detector #(
   reg samples_real[0:CORR_LEN-1];
   reg samples_imag[0:CORR_LEN-1];
   wire signed [2:0] ac[0:CORR_LEN-1], bd[0:CORR_LEN-1], ad[0:CORR_LEN-1], bc[0:CORR_LEN-1];
+  wire signed [2:0] ac_minus_bd[0:CORR_LEN-1], ad_plus_bc[0:CORR_LEN-1];
   reg signed [XCORR_WIDTH-1:0] xcorr_sum_real[0:NUM_STAGES-1][0:CORR_LEN-1];
   reg signed [XCORR_WIDTH-1:0] xcorr_sum_imag[0:NUM_STAGES-1][0:CORR_LEN-1];
   wire unsigned [XCORR_WIDTH-1:0] max, min, abs_real, abs_imag;
-  reg unsigned [XCORR_WIDTH:0] xcorr_abs;
+  reg unsigned [XCORR_WIDTH-1:0] xcorr_abs;
 
   genvar i, n;
   generate
     for (i = 0; i < CORR_LEN; i = i + 1) begin
       // 1-bit coefficients
-      assign real_coeffs[CORR_LEN-i-1] = CORR_COEFFS[2*i+1];
-      assign imag_coeffs[CORR_LEN-i-1] = CORR_COEFFS[2*i];
+      assign real_coeffs[i] = CORR_COEFFS[2*i+1];
+      assign imag_coeffs[i] = CORR_COEFFS[2*i];
       // 1-bit samples
       always @(posedge clk) begin
         if (reset) begin
@@ -64,10 +65,12 @@ module long_preamble_detector #(
       assign bd[i] = (imag_coeffs[i] ^ samples_imag[i]) ? -2'sd1 : 2'sd1;
       assign ad[i] = (real_coeffs[i] ^ samples_imag[i]) ? -2'sd1 : 2'sd1;
       assign bc[i] = (imag_coeffs[i] ^ samples_real[i]) ? -2'sd1 : 2'sd1;
+      assign ac_minus_bd[i] = ac[i] - bd[i];
+      assign ad_plus_bc[i]  = ad[i] + bc[i];
       always @(posedge clk) begin
         if (i_tvalid & i_tready) begin
-          xcorr_sum_real[0][i][2:0] <= $signed(ac[i] - bd[i]);
-          xcorr_sum_imag[0][i][2:0] <= $signed(ad[i] + bc[i]);
+          xcorr_sum_real[0][i][2:0] <= ac_minus_bd[i];
+          xcorr_sum_imag[0][i][2:0] <= ad_plus_bc[i];
         end
       end
     end
@@ -84,8 +87,8 @@ module long_preamble_detector #(
         always @(posedge clk) begin
           if (i_tready & i_tvalid) begin
             if (i < (CORR_LEN/2**(n+1) + (CORR_LEN % 2**(n+1) != 0))) begin
-              xcorr_sum_real[n+1][i][n+3:0] <= $signed(xcorr_sum_real[n][2*i][n+2:0] + xcorr_sum_real[n][2*i+1][n+2:0]);
-              xcorr_sum_imag[n+1][i][n+3:0] <= $signed(xcorr_sum_imag[n][2*i][n+2:0] + xcorr_sum_imag[n][2*i+1][n+2:0]);
+              xcorr_sum_real[n+1][i][n+3:0] <= $signed(xcorr_sum_real[n][2*i][n+2:0]) + $signed(xcorr_sum_real[n][2*i+1][n+2:0]);
+              xcorr_sum_imag[n+1][i][n+3:0] <= $signed(xcorr_sum_imag[n][2*i][n+2:0]) + $signed(xcorr_sum_imag[n][2*i+1][n+2:0]);
             end
           end
         end
