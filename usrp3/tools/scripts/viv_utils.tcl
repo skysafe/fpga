@@ -83,6 +83,9 @@ proc ::vivado_utils::initialize_project { {save_to_disk 0} } {
         } elseif [expr [lsearch {.bxml} $src_ext] >= 0] {
             puts "BUILDER: Adding Block Design XML to list (added after IP regeneration): $src_file"
             append bd_files "$src_file "
+        } elseif [expr [lsearch {.elf} $src_ext] >= 0] {
+            puts "BUILDER: Adding ELF     : $src_file"
+            add_files $src_file
         } elseif [expr [lsearch {.dat} $src_ext] >= 0] {
             puts "BUILDER: Adding Data File : $src_file"
             add_files $src_file
