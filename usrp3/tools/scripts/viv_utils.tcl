@@ -48,6 +48,7 @@ proc ::vivado_utils::initialize_project { {save_to_disk 0} } {
     variable g_source_files
 
     variable bd_files ""
+    variable tcl_files ""
 
     file delete -force $g_output_dir/build.rpt
 
@@ -86,6 +87,9 @@ proc ::vivado_utils::initialize_project { {save_to_disk 0} } {
         } elseif [expr [lsearch {.elf} $src_ext] >= 0] {
             puts "BUILDER: Adding ELF     : $src_file"
             add_files $src_file
+        } elseif [expr [lsearch {.tcl} $src_ext] >= 0] {
+            puts "BUILDER: Adding tcl script : $src_file"
+            append tcl_files "$src_file"
         } elseif [expr [lsearch {.dat} $src_ext] >= 0] {
             puts "BUILDER: Adding Data File : $src_file"
             add_files $src_file
@@ -105,6 +109,12 @@ proc ::vivado_utils::initialize_project { {save_to_disk 0} } {
     foreach file $bd_files {
         puts "BUILDER: Adding file from Block Design list: $file"
         add_files -norecurse $file
+    }
+
+    # Execute all included tcl scripts
+    foreach file $tcl_files {
+        puts "BUILDER: Executing tcl script: $file"
+        source $file
     }
 
     puts "BUILDER: Setting $g_top_module as the top module"
