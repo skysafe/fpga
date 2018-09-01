@@ -40,6 +40,8 @@ if [expr ([string equal $simulator "XSim"] == 0) && ([string length $sim_complib
 puts "BUILDER: Creating Vivado simulation project part $part_name"
 create_project -part $part_name -force $project_name/$project_name
 
+variable tcl_files ""
+
 foreach src_file $design_srcs {
     set src_ext [file extension $src_file ]
     if [expr [lsearch {.vhd .vhdl} $src_ext] >= 0] {
@@ -61,11 +63,17 @@ foreach src_file $design_srcs {
         puts "BUILDER: Adding Netlist : $src_file"
         read_edif $src_file
     } elseif [expr [lsearch {.bd} $src_ext] >= 0] {
-            puts "BUILDER: Adding Block Diagram: $src_file"
-            add_files -norecurse $src_file
+        puts "BUILDER: Adding Block Diagram: $src_file"
+        add_files -norecurse $src_file
     } elseif [expr [lsearch {.bxml} $src_ext] >= 0] {
-            puts "BUILDER: Adding Block Diagram XML: $src_file"
-            add_files -norecurse $src_file
+        puts "BUILDER: Adding Block Diagram XML: $src_file"
+        add_files -norecurse $src_file
+    } elseif [expr [lsearch {.elf} $src_ext] >= 0] {
+        puts "BUILDER: Adding ELF     : $src_file"
+        add_files $src_file
+    } elseif [expr [lsearch {.tcl} $src_ext] >= 0] {
+        puts "BUILDER: Adding tcl script : $src_file"
+        append tcl_files "$src_file"
     } else {
         puts "BUILDER: \[WARNING\] File ignored!!!: $src_file"
     }
@@ -79,6 +87,12 @@ foreach sim_src $sim_srcs {
 foreach inc_src $inc_srcs {
     puts "BUILDER: Adding Inc Src : $inc_src"
     add_files -fileset $sim_fileset -norecurse $inc_src
+}
+
+# Execute all included tcl scripts
+foreach file $tcl_files {
+    puts "BUILDER: Executing tcl script: $file"
+    source $file
 }
 
 # Simulator independent config
