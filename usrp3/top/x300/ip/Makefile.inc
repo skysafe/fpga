@@ -5,7 +5,10 @@
 include $(IP_DIR)/axi4_dualport_sram/Makefile.inc
 include $(IP_DIR)/axi64_4k_2clk_fifo/Makefile.inc
 include $(IP_DIR)/axi64_8k_2clk_fifo/Makefile.inc
-include $(IP_DIR)/axi_intercon_2x64_128_bd/Makefile.inc
+include $(IP_DIR)/axi_intercon_1x64_256_bd/Makefile.inc
+include $(IP_DIR)/axi_intercon_2x64_256_bd/Makefile.inc
+include $(IP_DIR)/axi_intercon_3x64_256_bd/Makefile.inc
+include $(IP_DIR)/axi_intercon_4x64_256_bd/Makefile.inc
 include $(IP_DIR)/bootram/Makefile.inc
 include $(IP_DIR)/bus_clk_gen/Makefile.inc
 include $(IP_DIR)/ddr3_32bit/Makefile.inc
@@ -30,7 +33,10 @@ $(IP_RADIO_CLK_GEN_SRCS)
 # $(IP_AXI4_BRAM_SRCS) \
 
 BD_SRCS = \
-$(IP_AXI_INTERCON_2X64_128_BD_SRCS)
+$(IP_AXI_INTERCON_1X64_256_BD_SRCS) \
+$(IP_AXI_INTERCON_2X64_256_BD_SRCS) \
+$(IP_AXI_INTERCON_3X64_256_BD_SRCS) \
+$(IP_AXI_INTERCON_4X64_256_BD_SRCS)
 
 IP_ONE_GIGE_PHY_XCI_SRCS = \
 $(IP_ONE_GIG_ETH_PCS_PMA_SRCS) \
@@ -68,7 +74,10 @@ $(IP_AURORA_64B66B_PCS_PMA_OUTS)
 # $(IP_AXI4_BRAM_OUTS) \
 
 BD_OUTPUTS = \
-$(IP_AXI_INTERCON_2X64_128_BD_OUTS)
+$(IP_AXI_INTERCON_1X64_256_BD_OUTS) \
+$(IP_AXI_INTERCON_2X64_256_BD_OUTS) \
+$(IP_AXI_INTERCON_3X64_256_BD_OUTS) \
+$(IP_AXI_INTERCON_4X64_256_BD_OUTS)
 
 # Currently unused
 # $(IP_INPUT_SAMPLE_FIFO_OUTS) \
