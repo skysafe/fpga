@@ -30,20 +30,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import basic_types
 import buses
-import copy
-
 
 # Parameters for axi_interconnect on a per device basis
 intercon_params = {
     'x300': {
-        'name': 'axi_intercon_2x64_128_bd_wrapper',
-        'max_ports': 2,
+        'name': 'axi_intercon_{0}x64_256_bd_wrapper',
+        'max_ports': 4,
         # Interconnect master AXI bus to MIG
         'master': {
             'type': 'axi',
             'name_prefix': 'M00_AXI',
             'assign_prefix': 'ddr3_axi',
-            'width': 128,
+            'width': 256,
             'addr_width': 32,
             'clock': 'ddr3_axi_clk',
             'reset': '~ddr3_axi_rst'
@@ -55,9 +53,8 @@ intercon_params = {
             'assign_prefix': 's{0:02d}_axi',
             'width': 64,
             'addr_width': 32,
-            'vlen': 1,
-            'clock': 'ddr3_axi_clk_x2',
-            'reset': '~ddr3_axi_rst'
+            'clock': 'ddr3_axi_clk_x2'
+            # No slave reset on interface
         },
         # Default arguments for RFNoC block AXI bus. Just a template that will
         # be merged with user provided arguments.
@@ -65,18 +62,18 @@ intercon_params = {
             'type': 'axi',
             'name_prefix': 'm_axi',
             'width': 64,
-            'addr_width': 32,
-            'vlen': 1
+            'addr_width': 32
+            # Note: 'clock' and 'reset' are optional
         }
     },
     'x310': {
-        'name': 'axi_intercon_2x64_128_bd_wrapper',
+        'name': 'axi_intercon_{0}x64_256_bd_wrapper',
         'max_ports': 2,
         'master': {
             'type': 'axi',
             'name_prefix': 'M00_AXI',
             'assign_prefix': 'ddr3_axi',
-            'width': 128,
+            'width': 256,
             'addr_width': 32,
             'clock': 'ddr3_axi_clk',
             'reset': '~ddr3_axi_rst'
@@ -88,7 +85,6 @@ intercon_params = {
             'width': 64,
             'addr_width': 32,
             'clock': 'ddr3_axi_clk_x2',
-            'reset': '~ddr3_axi_rst'
         },
         'noc_block': {
             'type': 'axi',
@@ -99,7 +95,7 @@ intercon_params = {
     },
     # TODO: Add E310 support, for now max_ports set to 0
     'e310': {
-        'name': 'axi_intercon_2x64_128_bd_wrapper',
+        'name': 'axi_intercon_{0}x64_128_bd_wrapper',
         'max_ports': 0,
         'master': {
             'type': 'axi',
@@ -117,7 +113,6 @@ intercon_params = {
             'width': 64,
             'addr_width': 32,
             'clock': 'ddr3_axi_clk_x2',
-            'reset': '~ddr3_axi_rst'
         },
         'noc_block': {
             'type': 'axi',
@@ -127,7 +122,7 @@ intercon_params = {
         }
     },
     'n310': {
-        'name': 'axi_intercon_4x64_256_bd_wrapper',
+        'name': 'axi_intercon_{0}x64_256_bd_wrapper',
         'max_ports': 4,
         'master': {
             'type': 'axi',
@@ -145,7 +140,6 @@ intercon_params = {
             'width': 64,
             'addr_width': 32,
             'clock': 'ddr3_axi_clk_x2',
-            'reset': '~ddr3_axi_rst'
         },
         'noc_block': {
             'type': 'axi',
@@ -227,19 +221,6 @@ class dram():
             ports[i]['name'] = ports[i]['name'].upper()
         return ports
 
-    def add_unused_ports(self):
-        """
-        Setup any unused ports held in reset.
-        """
-        for i in range(self.ports_in_use, self.max_ports):
-            unused_bus_args = intercon_params[self.device]['slave'].copy()
-            unused_bus_args['name_prefix'] = unused_bus_args['name_prefix'].format(i)
-            unused_bus_args['assign_prefix'] = unused_bus_args['assign_prefix'].format(i)
-            unused_bus_args['reset'] = "1'b0"  # Active low
-            self.module.add_ports(self.make_uppercase_ports(buses.get_ports(unused_bus_args)))
-            self.wires.add_items(buses.get_wires(unused_bus_args))
-            self.ports_in_use += 1
-
     def get_code_dict(self):
         """
         Returns a dictionary containing code objects for module, wires, etc
@@ -250,9 +231,8 @@ class dram():
         vstr += "// DRAM\n"
         vstr += "/////////////////////////////////////"
         d['verilog'] = basic_types.verilog(vstr)
-        # TODO: Instead of adding unused ports, use different module based on
-        #       number of ports in use.
-        self.add_unused_ports()
+        # Set module name based on number of ports in use
+        self.module.set_name(intercon_params[self.device]['name'].format(self.ports_in_use))
         d['modules'] = self.module
         d['wires'] = self.wires
         return d
