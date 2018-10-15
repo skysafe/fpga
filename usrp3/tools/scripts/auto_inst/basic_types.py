@@ -201,6 +201,12 @@ class module():
             else:
                 self.insert_port(**ports)
 
+    def get_name(self):
+        return self.name
+
+    def set_name(self, name):
+        self.name = name
+
     def get_port(self, name):
         if name in self.ports:
             return {name: self.ports[name]}
