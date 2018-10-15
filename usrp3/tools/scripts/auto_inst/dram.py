@@ -207,6 +207,12 @@ class dram():
             # Augment default arguments with user specified arguments from nocscript
             noc_block_bus_args = intercon_params[self.device]['noc_block'].copy()
             noc_block_bus_args['assign_prefix'] = dram_bus_args['assign_prefix']
+            # Copy user settings from nocscript
+            if dram_args.get('clock', False):
+                noc_block_bus_args['clock'] = dram_args['clock']
+            if dram_args.get('reset', False):
+                noc_block_bus_args['reset'] = "~{0}".format(dram_args['reset'])
+            # Add ports to noc block
             if (i == 0):
                 noc_block_inst.add_ports(buses.get_ports(noc_block_bus_args))
             else:
