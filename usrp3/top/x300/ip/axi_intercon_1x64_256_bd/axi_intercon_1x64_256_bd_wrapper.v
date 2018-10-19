@@ -255,7 +255,7 @@ module axi_intercon_1x64_256_bd_wrapper
   wire [7:0]S00_AXI_WSTRB;
   wire S00_AXI_WVALID;
 
-  axi_intercon_2x64_128_bd axi_intercon_2x64_128_bd_i
+  axi_intercon_2x64_256_bd axi_intercon_2x64_256_bd_i
        (.M00_AXI_ACLK(M00_AXI_ACLK),
         .M00_AXI_ARESETN(M00_AXI_ARESETN),
         .M00_AXI_araddr(M00_AXI_ARADDR),
